@@ -1,0 +1,460 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Light & Modern Color Palette */
+    --background: 0 0% 98%; /* Clean white background */
+    --foreground: 222 47% 15%; /* Dark blue-gray text */
+
+    --card: 0 0% 100%; /* Pure white cards */
+    --card-foreground: 222 47% 15%; /* Dark card text */
+
+    --popover: 0 0% 100%; /* White popover */
+    --popover-foreground: 222 47% 15%; /* Dark popover text */
+
+    --primary: 173 58% 45%; /* Teal primary - kept for brand identity */
+    --primary-foreground: 0 0% 100%; /* White primary text */
+
+    --secondary: 210 20% 96%; /* Light gray secondary */
+    --secondary-foreground: 222 47% 20%; /* Dark secondary text */
+
+    --muted: 210 20% 96%; /* Light muted */
+    --muted-foreground: 210 15% 45%; /* Medium gray text */
+
+    --accent: 24 95% 53%; /* Orange accent - kept for vibrancy */
+    --accent-foreground: 0 0% 100%; /* White accent text */
+
+    --destructive: 0 84% 60%; /* Red destructive */
+    --destructive-foreground: 0 0% 100%; /* White destructive text */
+
+    --success: 142 71% 35%; /* Green success */
+    --success-foreground: 0 0% 100%; /* White success text */
+
+    --warning: 38 92% 50%; /* Yellow warning */
+    --warning-foreground: 0 0% 100%; /* White warning text */
+
+    --border: 210 20% 88%; /* Light gray border */
+    --input: 210 20% 96%; /* Light input background */
+    --ring: 173 58% 45%; /* Primary ring */
+
+    --radius: 0.75rem;
+
+    /* Light sidebar */
+    --sidebar-background: 210 20% 98%; /* Very light gray sidebar */
+    --sidebar-foreground: 222 47% 20%; /* Dark sidebar text */
+    --sidebar-primary: 173 58% 45%; /* Primary sidebar */
+    --sidebar-primary-foreground: 0 0% 100%; /* White sidebar primary text */
+    --sidebar-accent: 210 20% 92%; /* Light sidebar accent */
+    --sidebar-accent-foreground: 222 47% 20%; /* Dark sidebar accent text */
+    --sidebar-border: 210 20% 90%; /* Light sidebar border */
+    --sidebar-ring: 173 58% 45%; /* Primary sidebar ring */
+
+    --chart-1: 173 58% 39%;
+    --chart-2: 24 95% 53%;
+    --chart-3: 142 71% 35%;
+    --chart-4: 38 92% 50%;
+    --chart-5: 210 80% 50%;
+
+    /* Bright & Modern Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(173 58% 45%), hsl(173 65% 50%));
+    --gradient-accent: linear-gradient(135deg, hsl(24 95% 53%), hsl(24 95% 60%));
+    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%), hsl(210 20% 98%));
+
+    /* Light & Soft Shadows */
+    --shadow-sm: 0 1px 2px 0 hsl(220 40% 85% / 0.3);
+    --shadow-md: 0 4px 6px -1px hsl(220 40% 85% / 0.3), 0 2px 4px -2px hsl(220 40% 85% / 0.3);
+    --shadow-lg: 0 10px 15px -3px hsl(220 40% 85% / 0.4), 0 4px 6px -4px hsl(220 40% 85% / 0.4);
+    --shadow-glow: 0 0 30px hsl(173 58% 45% / 0.4);
+
+    --font-heading: 'Outfit', sans-serif;
+    --font-body: 'Inter', sans-serif;
+  }
+
+  .dark {
+    /* Keeping dark mode as alternative */
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 40% 15%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 220 15% 20%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 173 58% 45%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 217 32% 17%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217 32% 17%;
+    --muted-foreground: 210 15% 65%;
+
+    --accent: 24 95% 53%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --border: 217 32% 17%;
+    --input: 217 32% 17%;
+    --ring: 173 58% 45%;
+
+    --sidebar-background: 220 15% 10%;
+    --sidebar-foreground: 210 20% 95%;
+    --sidebar-primary: 173 58% 45%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 217 32% 15%;
+    --sidebar-accent-foreground: 210 20% 90%;
+    --sidebar-border: 217 32% 15%;
+    --sidebar-ring: 173 58% 45%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-gradient-to-br from-background via-background to-gray-50 text-foreground font-body antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-gradient-to-br from-white to-gray-50/80 backdrop-blur-md border border-white/50 shadow-lg hover:shadow-xl transition-all duration-300;
+  }
+
+  .metric-card {
+    @apply bg-gradient-to-br from-white to-gray-50 rounded-2xl p-4 md:p-6 border border-gray-100 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1;
+  }
+
+  .sidebar-item {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-xl text-sidebar-foreground/90 hover:text-sidebar-primary hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-transparent transition-all duration-200 font-medium;
+  }
+
+  .sidebar-item-active {
+    @apply bg-gradient-to-r from-primary/10 to-primary/5 text-primary font-bold shadow-sm border-l-4 border-primary;
+  }
+
+  .stat-trend-up {
+    @apply text-success inline-flex items-center gap-1 text-sm font-semibold;
+  }
+
+  .stat-trend-down {
+    @apply text-destructive inline-flex items-center gap-1 text-sm font-semibold;
+  }
+
+  .action-button {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-semibold transition-all duration-300 active:scale-[0.95] hover:shadow-lg transform hover:-translate-y-0.5;
+  }
+
+  .page-title {
+    @apply text-3xl md:text-4xl font-extrabold tracking-tight text-foreground bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent;
+  }
+
+  .section-title {
+    @apply text-xl md:text-2xl font-bold text-foreground;
+  }
+  
+  /* Enhanced button styles */
+  .btn-primary {
+    @apply bg-gradient-to-r from-primary to-primary/90 hover:from-primary/80 hover:to-primary/85 text-white font-bold rounded-xl px-6 py-3 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 hover:scale-[1.02];
+  }
+  
+  .btn-secondary {
+    @apply bg-gradient-to-r from-secondary to-gray-100 hover:from-gray-100 hover:to-gray-50 text-foreground font-bold rounded-xl px-6 py-3 shadow-md hover:shadow-lg transition-all duration-300 transform hover:-translate-y-0.5;
+  }
+  
+  /* Enhanced input styles */
+  .input-enhanced {
+    @apply bg-white border-2 border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all duration-300 shadow-sm hover:shadow-md text-foreground placeholder:text-gray-400;
+  }
+  
+  /* Enhanced card styles */
+  .card-enhanced {
+    @apply bg-gradient-to-br from-white to-gray-50 rounded-2xl border border-gray-100 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 text-foreground overflow-hidden;
+  }
+  
+  /* Enhanced table styles */
+  .table-enhanced {
+    @apply w-full text-sm text-foreground;
+  }
+  
+  .table-enhanced th {
+    @apply px-5 py-4 text-left font-bold bg-gradient-to-r from-gray-50 to-gray-100 text-foreground rounded-t-xl border-b-2 border-gray-200;
+  }
+  
+  .table-enhanced td {
+    @apply px-5 py-4 border-b border-gray-100 text-foreground transition-colors duration-200;
+  }
+  
+  .table-enhanced tr:last-child td {
+    @apply border-b-0;
+  }
+  
+  .table-enhanced tr:hover td {
+    @apply bg-gradient-to-r from-primary/5 to-transparent;
+  }
+}
+
+@layer utilities {
+  /* Smooth color transitions */
+  .transition-colors-slow {
+    transition-property: color, background-color, border-color;
+    transition-duration: 500ms;
+    transition-timing-function: ease-in-out;
+  }
+  
+  /* Subtle scale effect */
+  .hover-lift {
+    @apply transition-transform duration-300 hover:scale-[1.02];
+  }
+  
+  /* Glow on hover */
+  .hover-glow {
+    @apply transition-shadow duration-300 hover:shadow-glow;
+  }
+  
+  /* Gradient text */
+  .gradient-text {
+    @apply bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent;
+  }
+  
+  /* Soft border */
+  .soft-border {
+    @apply border border-white/20;
+  }
+  
+  /* Word break utilities */
+  .word-break {
+    word-break: break-word;
+  }
+  
+  /* Line clamping utilities */
+  .line-clamp-1 {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  
+  .animate-fade-in {
+    animation: fadeIn 0.4s ease-out forwards;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.5s ease-out forwards;
+  }
+
+  .animate-slide-in-left {
+    animation: slideInLeft 0.4s ease-out forwards;
+  }
+  
+  .animate-pulse-slow {
+    animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+  
+  .animate-glow {
+    animation: glow 2s ease-in-out infinite;
+  }
+  
+  /* Gradient background animation */
+  .animate-gradient {
+    background-size: 400%;
+    animation: gradient 15s ease infinite;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes slideInLeft {
+    from { opacity: 0; transform: translateX(-20px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+  }
+  
+  @keyframes glow {
+    0%, 100% { box-shadow: 0 0 20px hsl(173 58% 45% / 0.4); }
+    50% { box-shadow: 0 0 40px hsl(173 58% 45% / 0.8); }
+  }
+  
+  @keyframes gradient {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+}
+
+/* =========================================================
+   FIXES: Notification panel overlap + non-clickable actions
+   ---------------------------------------------------------
+   Add these utility/component classes to your notification UI.
+   These classes fix:
+   - Dropdown overlapping/going under sidebar/header (z-index)
+   - Dropdown clipping due to overflow hidden containers
+   - Action buttons not clickable due to overlay/pointer-events
+   - Mobile sizing/scroll behavior
+   ========================================================= */
+
+@layer components {
+  /* Ensure header / topbar stays above page content */
+  .app-header {
+    @apply relative z-40;
+  }
+
+  /* Wrapper for the bell + dropdown */
+  .notification-wrap {
+    @apply relative;
+  }
+
+  /* Small badge on the bell icon */
+  .notification-badge {
+    @apply absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] leading-[18px]
+      bg-destructive text-white font-bold text-center shadow-sm;
+  }
+
+  /* Dropdown panel */
+  .notification-panel {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    right: 0;
+    z-index: 60; /* above sidebar/header content */
+    width: min(24rem, calc(100vw - 2rem));
+    max-height: min(70vh, 32rem);
+    overflow: auto;
+    overscroll-behavior: contain;
+    border-radius: 1rem;
+    border: 1px solid hsl(var(--border));
+    background: linear-gradient(180deg, hsl(var(--card)), hsl(210 20% 98%));
+    box-shadow: var(--shadow-lg);
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Make sure clicks work */
+  .notification-panel,
+  .notification-panel * {
+    pointer-events: auto;
+  }
+
+  /* Optional: section header inside dropdown */
+  .notification-panel-header {
+    @apply sticky top-0 z-10 px-4 py-3 bg-white/90 backdrop-blur border-b border-gray-100;
+  }
+
+  .notification-item {
+    @apply px-4 py-3 border-b border-gray-100 hover:bg-primary/5 transition-colors duration-200;
+  }
+
+  .notification-item:last-child {
+    @apply border-b-0;
+  }
+
+  .notification-actions {
+    @apply mt-2 flex items-center gap-2;
+  }
+
+  .notification-action-btn {
+    @apply inline-flex items-center justify-center rounded-lg px-3 py-1.5 text-sm font-semibold
+      border border-gray-200 bg-white hover:bg-gray-50 active:scale-[0.98] transition-all duration-200;
+  }
+
+  /* Backdrop for mobile (use when dropdown is open) */
+  .notification-backdrop {
+    @apply fixed inset-0 z-50 bg-black/30 backdrop-blur-[1px];
+  }
+
+  /* Mobile: render as bottom-sheet style */
+  @media (max-width: 640px) {
+    .notification-panel {
+      position: fixed;
+      left: 1rem;
+      right: 1rem;
+      top: auto;
+      bottom: 1rem;
+      width: auto;
+      max-height: 70vh;
+      z-index: 60;
+    }
+  }
+}
+
+@layer utilities {
+  /* Prevent horizontal shake/overflow that can cause UI overlap */
+  .no-x-overflow {
+    overflow-x: hidden;
+  }
+}
+
+/* Apply safe global defaults */
+@layer base {
+  html, body {
+    height: 100%;
+  }
+
+  body {
+    min-height: 100%;
+    overflow-x: hidden; /* prevent accidental overlap by off-canvas elements */
+  }
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-slide-up,
+  .animate-slide-in-left,
+  .animate-pulse-slow,
+  .animate-float,
+  .animate-glow,
+  .animate-gradient {
+    animation: none !important;
+  }
+
+  .hover-lift,
+  .hover-glow,
+  .transition-colors-slow {
+    transition: none !important;
+  }
+}
