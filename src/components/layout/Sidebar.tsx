@@ -22,50 +22,111 @@ import {
   HelpCircle,
   TrendingUp,
   Target,
-  Activity
+  Activity,
+  ShieldCheck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import NotificationsPanel from "@/components/NotificationsPanel";
 
 const adminNavigation = [
-  { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
-  { name: "Visibility Center", href: "/visibility", icon: Target },
-  { name: "Analytics", href: "/admin/analytics", icon: BarChart3 },
-  { name: "User Management", href: "/admin/users", icon: Users },
-  { name: "System Settings", href: "/admin/settings", icon: Settings },
-  { name: "Audit Logs", href: "/admin/logs", icon: Activity },
-  { name: "Low Stock Alerts", href: "/low-stock-alerts", icon: Package },
-  { name: "Inventory", href: "/inventory", icon: Package },
-  { name: "Sales", href: "/sales", icon: ShoppingCart },
-  { name: "Purchases", href: "/purchases", icon: Truck },
-  { name: "Customers", href: "/customers", icon: Users },
-  { name: "Service", href: "/service", icon: Wrench },
-  { name: "Invoices", href: "/invoices", icon: FileText },
-  { name: "Reports", href: "/reports", icon: TrendingUp },
+  { 
+    group: "Overview",
+    items: [
+      { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
+      { name: "Analytics", href: "/admin/analytics", icon: BarChart3 },
+      { name: "Visibility Center", href: "/visibility", icon: Target },
+    ]
+  },
+  {
+    group: "Inventory & Sales",
+    items: [
+      { name: "Inventory", href: "/inventory", icon: Package },
+      { name: "Sales", href: "/sales", icon: ShoppingCart },
+      { name: "Purchases", href: "/purchases", icon: Truck },
+      { name: "Invoices", href: "/invoices", icon: FileText },
+    ]
+  },
+  {
+    group: "Industry Operations",
+    items: [
+      { name: "Service Center", href: "/service", icon: Wrench },
+      { name: "Warranty Registry", href: "/warranty", icon: ShieldCheck },
+      { name: "Production & Assembly", href: "/assembly", icon: Wrench },
+      { name: "EMI & Payments", href: "/payments", icon: CreditCard },
+    ]
+  },
+  {
+    group: "Management",
+    items: [
+      { name: "Customers", href: "/customers", icon: Users },
+      { name: "User Management", href: "/admin/users", icon: Users },
+      { name: "Low Stock Alerts", href: "/low-stock-alerts", icon: Package },
+      { name: "Audit Logs", href: "/admin/logs", icon: Activity },
+      { name: "System Settings", href: "/admin/settings", icon: Settings },
+    ]
+  }
 ];
 
 const employeeNavigation = [
-  { name: "Dashboard", href: "/employee-dashboard", icon: LayoutDashboard },
-  { name: "Visibility", href: "/visibility", icon: Target },
-  { name: "My Performance", href: "/employee/performance", icon: Target },
-  { name: "Inventory", href: "/inventory", icon: Package },
-  { name: "Sales", href: "/sales", icon: ShoppingCart },
-  { name: "Customers", href: "/customers", icon: Users },
-  { name: "Service", href: "/service", icon: Wrench },
-  { name: "Invoices", href: "/invoices", icon: FileText },
-  { name: "My Schedule", href: "/employee/schedule", icon: Settings },
-  { name: "Settings", href: "/settings", icon: Settings },
+  {
+    group: "Dashboard",
+    items: [
+      { name: "My Workspace", href: "/employee-dashboard", icon: LayoutDashboard },
+      { name: "My Performance", href: "/employee/performance", icon: Target },
+      { name: "Visibility", href: "/visibility", icon: Target },
+    ]
+  },
+  {
+    group: "Sales & Inventory",
+    items: [
+      { name: "Inventory", href: "/inventory", icon: Package },
+      { name: "Sales", href: "/sales", icon: ShoppingCart },
+      { name: "Customers", href: "/customers", icon: Users },
+      { name: "Invoices", href: "/invoices", icon: FileText },
+    ]
+  },
+  {
+    group: "Operations",
+    items: [
+      { name: "Service", href: "/service", icon: Wrench },
+      { name: "Warranty", href: "/warranty", icon: ShieldCheck },
+      { name: "Production", href: "/assembly", icon: Wrench },
+      { name: "EMI Tracking", href: "/payments", icon: CreditCard },
+      { name: "My Schedule", href: "/employee/schedule", icon: Settings },
+    ]
+  },
+  {
+    group: "Account",
+    items: [
+      { name: "Settings", href: "/settings", icon: Settings },
+    ]
+  }
 ];
 
 const customerNavigation = [
-  { name: "Dashboard", href: "/customer-dashboard", icon: LayoutDashboard },
-  { name: "My Orders", href: "/customer/orders", icon: ShoppingCart },
-  { name: "My Services", href: "/customer/services", icon: Wrench },
-  { name: "Browse Products", href: "/inventory", icon: Package },
-  { name: "Rewards", href: "/customer/rewards", icon: Award },
-  { name: "My Profile", href: "/settings", icon: Settings },
-  { name: "Support", href: "/customer/support", icon: HelpCircle },
+  {
+    group: "Overview",
+    items: [
+      { name: "Dashboard", href: "/customer-dashboard", icon: LayoutDashboard },
+      { name: "Browse Bikes", href: "/inventory", icon: Bike },
+    ]
+  },
+  {
+    group: "My History",
+    items: [
+      { name: "My Orders", href: "/customer/orders", icon: ShoppingCart },
+      { name: "My Services", href: "/customer/services", icon: Wrench },
+      { name: "Rewards", href: "/customer/rewards", icon: Award },
+    ]
+  },
+  {
+    group: "Account",
+    items: [
+      { name: "My Profile", href: "/settings", icon: Settings },
+      { name: "Support", href: "/customer/support", icon: HelpCircle },
+    ]
+  }
 ];
 
 interface SidebarProps {
@@ -90,31 +151,30 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed top-0 left-0 z-50 h-full w-64 bg-gradient-to-b from-sidebar-background to-sidebar-accent/90 transform transition-transform duration-300 ease-in-out lg:translate-x-0",
+          "fixed top-0 left-0 z-50 h-full w-64 bg-sidebar-background border-r border-sidebar-border transform transition-transform duration-300 ease-in-out lg:translate-x-0 shadow-sm",
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="flex items-center justify-between h-16 px-4 border-b border-sidebar-border">
+          <div className="flex items-center justify-between h-20 px-6 border-b border-sidebar-border bg-white">
             <Link to="/" className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg">
-                <Bike className="w-7 h-7 text-primary-foreground" />
+              <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center shadow-sm">
+                <Bike className="w-6 h-6 text-primary-foreground" />
               </div>
               <div className="flex flex-col">
-                <span className="font-heading font-bold text-sidebar-foreground text-xl leading-tight">
+                <span className="font-bold text-foreground text-lg leading-tight tracking-tight">
                   Saurashtra
                 </span>
-                <span className="text-xs text-sidebar-foreground/90 uppercase tracking-wider font-medium">
-                  Cycle Hub
+                <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">
+                  Cycle Hub ERP
                 </span>
               </div>
             </Link>
-            <div className="flex items-center gap-2">
-              <NotificationsPanel isAdmin={isAdmin} />
+            <div className="flex items-center gap-2 lg:hidden">
               <button
                 onClick={onToggle}
-                className="lg:hidden p-2 rounded-lg hover:bg-sidebar-accent text-sidebar-foreground"
+                className="p-2 rounded-md hover:bg-muted text-muted-foreground transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -122,90 +182,67 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 overflow-y-auto py-4 px-3">
-            <ul className="space-y-1">
-              {(() => {
-                if (isAdmin) {
-                  return adminNavigation;
-                } else if (user?.role === 'employee') {
-                  return employeeNavigation;
-                } else if (user?.role === 'customer') {
-                  return customerNavigation;
-                } else {
-                  // Default navigation for any other case
-                  return [
-                    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-                    { name: "Inventory", href: "/inventory", icon: Package },
-                    { name: "Sales", href: "/sales", icon: ShoppingCart },
-                    { name: "Customers", href: "/customers", icon: Users },
-                    { name: "Service", href: "/service", icon: Wrench },
-                    { name: "Settings", href: "/settings", icon: Settings },
-                  ];
-                }
-              })().map((item) => {
-                const isActive = location.pathname === item.href;
-                return (
-                  <li key={item.name}>
-                    <Link
-                      to={item.href}
-                      onClick={() => {
-                        if (window.innerWidth < 1024) onToggle();
-                      }}
-                      className={cn(
-                        "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 hover:bg-sidebar-accent/40",
-                        isActive 
-                          ? "bg-gradient-to-r from-primary to-primary/70 text-primary-foreground shadow-lg" 
-                          : "text-sidebar-foreground/90 hover:translate-x-1 hover:bg-sidebar-accent/30"
-                      )}
-                    >
-                      <item.icon className="w-5 h-5" />
-                      <span className="font-semibold">{item.name}</span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
+          <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-8 scrollbar-hide">
+            {((): { group: string, items: any[] }[] => {
+              if (isAdmin) return adminNavigation;
+              if (user?.role === 'employee') return employeeNavigation;
+              // Default to customer navigation for all other roles (Member, Auditor, etc.)
+              return customerNavigation;
+            })().map((group) => (
+              <div key={group.group}>
+                <p className="px-3 mb-3 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{group.group}</p>
+                <ul className="space-y-1">
+                  {group.items.map((item) => {
+                    const isActive = location.pathname === item.href;
+                    return (
+                      <li key={`${item.name}-${item.href}`}>
+                        <Link
+                          to={item.href}
+                          onClick={() => {
+                            if (window.innerWidth < 1024) onToggle();
+                          }}
+                          className={cn(
+                            "group flex items-center px-3 py-2.5 text-xs font-bold rounded-xl transition-all duration-200",
+                            isActive 
+                              ? "bg-primary text-white shadow-lg shadow-primary/20" 
+                              : "text-slate-600 hover:bg-slate-50 hover:text-primary"
+                          )}
+                        >
+                          {item.icon ? (
+                            <item.icon className={cn("mr-3 h-4 w-4 shrink-0 transition-colors", isActive ? "text-white" : "text-slate-400 group-hover:text-primary")} />
+                          ) : (
+                            <LayoutDashboard className={cn("mr-3 h-4 w-4 shrink-0 transition-colors", isActive ? "text-white" : "text-slate-400 group-hover:text-primary")} />
+                          )}
+                          <span>{item.name}</span>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
           </nav>
 
           {/* User section */}
-          <div className="p-4 border-t border-sidebar-border">
-            <div className="space-y-2">
-              <div className="flex items-center gap-3 px-3 py-3 rounded-xl bg-sidebar-accent/30">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-primary-foreground font-bold text-sm shadow-md">
-                  {user?.displayName?.charAt(0) || 'U'}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-bold text-sidebar-foreground truncate">
-                      {user?.displayName || 'User'}
-                    </p>
-                    {user?.role && (
-                      <span className={`px-2.5 py-1 text-xs rounded-full font-bold ${
-                        user.role === 'admin' ? 'bg-gradient-to-r from-destructive to-destructive/70 text-destructive-foreground' :
-                        user.role === 'employee' ? 'bg-gradient-to-r from-primary to-primary/70 text-primary-foreground' :
-                        'bg-gradient-to-r from-secondary to-secondary/70 text-secondary-foreground'
-                      }`}>
-                        {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-                      </span>
-                    )}
-                    {!user?.approved && user?.role !== 'customer' && (
-                      <span className="px-2.5 py-1 text-xs bg-gradient-to-r from-warning to-warning/70 text-warning-foreground rounded-full font-bold">
-                        Unapproved
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-sidebar-foreground/80 truncate">
-                    {user?.email || 'Not logged in'}
-                  </p>
-                </div>
-                <ChevronDown className="w-4 h-4 text-sidebar-foreground/70" />
+          <div className="p-4 bg-muted/30 border-t border-sidebar-border">
+            <div className="flex items-center gap-3 p-3 rounded-lg border border-border/50 bg-white shadow-sm">
+              <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-700 font-bold text-xs border border-slate-200">
+                {user?.displayName?.charAt(0) || 'U'}
               </div>
-              <button
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-foreground truncate">
+                  {user?.displayName || 'User'}
+                </p>
+                <p className="text-[10px] text-muted-foreground truncate">
+                  {user?.role || 'Member'}
+                </p>
+              </div>
+              <button 
                 onClick={logout}
-                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-sidebar-accent/40 text-sidebar-foreground transition-all duration-300 hover:translate-x-1"
+                className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                title="Logout"
               >
-                <LogOut className="w-5 h-5" />
-                <span className="text-sm font-semibold">Logout</span>
+                <LogOut className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>

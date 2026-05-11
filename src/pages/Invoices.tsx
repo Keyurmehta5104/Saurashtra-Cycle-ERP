@@ -171,9 +171,9 @@ export default function Invoices() {
       invoice.invoiceNumber?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const totalAmount = invoices.reduce((acc, i) => acc + (i.amount || 0), 0);
-  const pendingAmount = invoices.filter(i => i.status === "Pending").reduce((acc, i) => acc + (i.amount || 0), 0);
-  const overdueAmount = invoices.filter(i => i.status === "Overdue").reduce((acc, i) => acc + (i.amount || 0), 0);
+  const totalAmount = invoices.reduce((acc, i) => acc + (Number(i.amount) || 0), 0);
+  const pendingAmount = invoices.filter(i => i.status === "Pending").reduce((acc, i) => acc + (Number(i.amount) || 0), 0);
+  const overdueAmount = invoices.filter(i => i.status === "Overdue").reduce((acc, i) => acc + (Number(i.amount) || 0), 0);
 
   if (loading) {
     return (

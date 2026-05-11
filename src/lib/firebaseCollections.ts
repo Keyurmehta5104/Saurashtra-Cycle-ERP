@@ -23,6 +23,8 @@ export const COLLECTIONS = {
   SERVICES: "services",
   INVOICES: "invoices",
   USERS: "users",
+  ACTIVITY_LOGS: "activity_logs",
+  STOCK_LEDGER: "stockLedger",
 } as const;
 
 function stripUndefinedDeep<T>(value: T): T {

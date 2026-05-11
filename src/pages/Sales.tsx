@@ -44,6 +44,9 @@ import { COLLECTIONS } from "@/lib/firebaseCollections";
 import { SaleOrder } from "@/types/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { InvoiceGenerator } from "@/components/InvoiceGenerator";
+import { createSaleWithStockUpdate, cancelSaleWithStockRestore } from "@/lib/saleTransaction";
+import { useAuth } from "@/contexts/AuthContext";
+import { getNextNumber } from "@/lib/autoInvoiceNumber";
 
 // Define missing types
 interface LineItem {
@@ -77,15 +80,32 @@ const statusVariants = {
 } as const;
 
 export default function Sales() {
+  const { user, isStaff } = useAuth();
   const location = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddOpen, setIsAddOpen] = useState(false);
-  
+  const [isGeneratingNumber, setIsGeneratingNumber] = useState(false);
+
   useEffect(() => {
     if (location.pathname === "/sales/new") {
       setIsAddOpen(true);
     }
   }, [location.pathname]);
+
+  // Auto-generate invoice number each time the dialog opens
+  useEffect(() => {
+    if (isAddOpen) {
+      setIsGeneratingNumber(true);
+      getNextNumber("invoice")
+        .then((num) => {
+          setNewSale((prev) => ({ ...prev, invoiceNo: num }));
+        })
+        .catch((err) => {
+          console.error("Failed to generate invoice number:", err);
+        })
+        .finally(() => setIsGeneratingNumber(false));
+    }
+  }, [isAddOpen]);
   
   const [selectedProduct, setSelectedProduct] = useState("");
   const [quantity, setQuantity] = useState(1);
@@ -157,9 +177,10 @@ export default function Sales() {
     notes: "",
   });
 
-  const { data: salesData, loading: salesLoading, add: addSale, update } = useFirestoreCollection<SaleOrder>(COLLECTIONS.SALES);
+  const { data: salesData, loading: salesLoading, update } = useFirestoreCollection<SaleOrder>(COLLECTIONS.SALES);
   const { data: inventoryData, loading: inventoryLoading } = useFirestoreCollection<InventoryItem>(COLLECTIONS.INVENTORY);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const loading = salesLoading || inventoryLoading;
 
@@ -250,10 +271,15 @@ export default function Sales() {
         cardHolderName: newSale.cardHolderName,
       };
 
-      await addSale(saleOrder);
-      
-      // Show invoice
-      setInvoiceData({ ...saleOrder, id: Date.now().toString() } as SaleOrder);
+      // Atomic: creates sale + deducts stock in one Firestore batch
+      const saleId = await createSaleWithStockUpdate(
+        saleOrder,
+        lineItems,
+        user?.uid ?? "system"
+      );
+
+      // Show invoice with real Firestore document ID
+      setInvoiceData({ ...saleOrder, id: saleId } as SaleOrder);
       setShowInvoice(true);
       
       // Reset form
@@ -300,8 +326,8 @@ export default function Sales() {
 
   const filteredData = salesData.filter(
     (item) =>
-      item.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.orderId?.toLowerCase().includes(searchQuery.toLowerCase())
+      (item.customerName?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
+      (item.orderId?.toLowerCase() || "").includes(searchQuery.toLowerCase())
   );
 
   const totalSales = salesData.reduce((acc, s) => acc + (s.grandTotal || 0), 0);
@@ -338,23 +364,24 @@ export default function Sales() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Sales Orders</h1>
+          <h1 className="page-title text-foreground">Sales Orders</h1>
           <p className="text-muted-foreground mt-1">
             Track and manage all sales transactions
           </p>
         </div>
-        <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="w-4 h-4 mr-2" />
-              New Sale
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>New Sale Order</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-6">
+        {isStaff && (
+          <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+            <DialogTrigger asChild>
+              <Button className="btn-primary">
+                <Plus className="w-4 h-4 mr-2" />
+                New Sale
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>New Sale Order</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-6">
               {/* Bill and Party Info */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
@@ -367,11 +394,17 @@ export default function Sales() {
                 </div>
                 <div>
                   <Label>Invoice No.</Label>
-                  <Input
-                    value={newSale.invoiceNo}
-                    onChange={(e) => setNewSale({ ...newSale, invoiceNo: e.target.value })}
-                    placeholder="e.g. 4238"
-                  />
+                  <div className="relative">
+                    <Input
+                      value={newSale.invoiceNo}
+                      readOnly
+                      className="bg-secondary/50 font-mono font-semibold text-primary cursor-default"
+                      placeholder={isGeneratingNumber ? "Generating..." : "INV-XXXX"}
+                    />
+                    {isGeneratingNumber && (
+                      <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
+                    )}
+                  </div>
                 </div>
                 <div>
                   <Label>Invoice Date</Label>
@@ -739,33 +772,34 @@ export default function Sales() {
             </div>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <div className="bg-card p-4 rounded-xl border border-border/50">
-          <p className="text-sm text-muted-foreground">Total Sales</p>
-          <p className="text-2xl font-bold font-heading text-foreground">₹{totalSales.toLocaleString()}</p>
+        <div className="metric-card">
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Total Sales</p>
+          <p className="text-2xl font-bold text-foreground">₹{(totalSales || 0).toLocaleString()}</p>
         </div>
-        <div className="bg-card p-4 rounded-xl border border-border/50">
-          <p className="text-sm text-muted-foreground">Orders</p>
-          <p className="text-2xl font-bold font-heading text-foreground">{salesData.length}</p>
+        <div className="metric-card">
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Orders</p>
+          <p className="text-2xl font-bold text-foreground">{salesData.length}</p>
         </div>
-        <div className="bg-card p-4 rounded-xl border border-border/50">
-          <p className="text-sm text-muted-foreground">Pending</p>
-          <p className="text-2xl font-bold font-heading text-yellow-600">₹{pendingAmount.toLocaleString()}</p>
+        <div className="metric-card border-l-4 border-l-destructive">
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Pending Amount</p>
+          <p className="text-2xl font-bold text-destructive">₹{pendingAmount.toLocaleString()}</p>
         </div>
-        <div className="bg-card p-4 rounded-xl border border-border/50">
-          <p className="text-sm text-muted-foreground">Delivered</p>
-          <p className="text-2xl font-bold font-heading text-foreground">{completedOrders}</p>
+        <div className="metric-card">
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Delivered</p>
+          <p className="text-2xl font-bold text-foreground">{completedOrders}</p>
         </div>
-        <div className="bg-card p-4 rounded-xl border border-border/50">
-          <p className="text-sm text-muted-foreground">Avg Order</p>
-          <p className="text-2xl font-bold font-heading text-foreground">₹{avgOrderValue.toFixed(2)}</p>
+        <div className="metric-card">
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Avg Order</p>
+          <p className="text-2xl font-bold text-foreground">₹{avgOrderValue.toFixed(2)}</p>
         </div>
-        <div className="bg-card p-4 rounded-xl border border-border/50">
-          <p className="text-sm text-muted-foreground">Payment Rate</p>
-          <p className="text-2xl font-bold font-heading text-foreground">{salesData.length > 0 ? Math.round((paidOrders / salesData.length) * 100) : 0}%</p>
+        <div className="metric-card">
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Payment Rate</p>
+          <p className="text-2xl font-bold text-foreground">{salesData.length > 0 ? Math.round((paidOrders / salesData.length) * 100) : 0}%</p>
         </div>
       </div>
       
@@ -817,21 +851,21 @@ export default function Sales() {
             placeholder="Search orders..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+            className="pl-10 input-enhanced"
           />
         </div>
-        <Button variant="outline">
+        <Button variant="outline" className="btn-secondary h-10">
           <Calendar className="w-4 h-4 mr-2" />
           Date Range
         </Button>
       </div>
 
       {/* Table */}
-      <div className="bg-card rounded-xl border border-border/50 shadow-sm overflow-hidden">
+      <div className="card-enhanced">
         <div className="overflow-x-auto">
-          <Table>
+          <Table className="table-enhanced">
             <TableHeader>
-              <TableRow className="bg-secondary/50">
+              <TableRow>
                 <TableHead>Order ID</TableHead>
                 <TableHead>Customer</TableHead>
                 <TableHead className="hidden sm:table-cell">Date</TableHead>
@@ -902,11 +936,22 @@ export default function Sales() {
                             <Button size="sm" onClick={async () => {
                               if (newStatus) {
                                 try {
-                                  await update(item.id, { status: newStatus });
-                                  toast({ title: "Status updated successfully" });
+                                  if (newStatus === "Cancelled" && item.lineItems && item.lineItems.length > 0) {
+                                    // Atomic: restore stock + mark cancelled in one batch
+                                    await cancelSaleWithStockRestore(
+                                      item.id,
+                                      item.lineItems,
+                                      "Cancelled by user",
+                                      user?.uid ?? "system"
+                                    );
+                                  } else {
+                                    await update(item.id, { status: newStatus });
+                                  }
+                                  toast({ title: newStatus === "Cancelled" ? "Sale cancelled & stock restored" : "Status updated successfully" });
                                   setEditingStatusId(null);
                                   setNewStatus(undefined);
                                 } catch (error) {
+                                  console.error("Status update error:", error);
                                   toast({ title: "Error updating status", variant: "destructive" });
                                 }
                               }

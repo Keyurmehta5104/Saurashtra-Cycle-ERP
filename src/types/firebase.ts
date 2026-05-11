@@ -38,6 +38,7 @@ export interface SaleOrder extends BaseDocument {
   orderId: string;
   customerName: string;
   customerPhone?: string;
+  customerId?: string;
   date: string;
   items: number; // Total item count
   lineItems?: LineItem[]; // Detailed line items
@@ -70,6 +71,16 @@ export interface SaleOrder extends BaseDocument {
   cardExpiry?: string;
   cardCVV?: string;
   cardHolderName?: string;
+  amountPaid?: number;
+  paymentHistory?: {
+    date: string;
+    amount: number;
+    method: string;
+    notes?: string;
+  }[];
+  // Cancellation fields
+  cancelReason?: string;
+  cancelledAt?: Timestamp;
 }
 
 export interface PurchaseOrder extends BaseDocument {
@@ -118,6 +129,7 @@ export interface Customer extends BaseDocument {
   type: "Premium" | "Regular" | "New";
   totalOrders: number;
   totalSpent: number;
+  loyaltyPoints: number;
   lastOrder: string;
   avatar?: string;
 }
@@ -136,6 +148,10 @@ export interface ServiceJob extends BaseDocument {
   technician: string;
   payment?: "Paid" | "Unpaid" | "Partial";
   amountPaid?: number;
+  actualCost?: number;
+  partsUsed?: string;
+  deliveredDate?: string;
+  completionNotes?: string;
   paymentType?: "Cash" | "UPI" | "Card" | "Bank Transfer" | "Cheque" | "Credit" | "Other";
 }
 
@@ -156,3 +172,19 @@ export interface User extends BaseDocument {
   status: 'pending' | 'approved' | 'rejected';
   createdAt: Timestamp;
 }
+
+export interface StockLedgerEntry extends BaseDocument {
+  productId: string;
+  productName: string;
+  sku: string;
+  changeType: "sale" | "purchase" | "sale_return" | "purchase_received" | "manual_adjustment";
+  quantity: number;          // positive = added, negative = removed
+  stockBefore: number;
+  stockAfter: number;
+  referenceId: string;       // sale ID or purchase order ID
+  referenceType: "sale" | "sale_cancel" | "purchase_received" | "manual";
+  notes?: string;
+  changedBy: string;         // user ID
+  date: Timestamp;
+}
+

@@ -30,6 +30,9 @@ import Rewards from "./pages/Rewards";
 import OrderTracking from "./pages/OrderTracking";
 import VisibilityCenter from "./pages/VisibilityCenter";
 import EnhancedDashboard from "./pages/EnhancedDashboard";
+import WarrantyRegistry from "./pages/WarrantyRegistry";
+import Assembly from "./pages/Assembly";
+import PaymentSchedules from "./pages/PaymentSchedules";
 import { initializeAdminUser } from "@/lib/initializeAdminUser";
 import { useEffect } from "react";
 
@@ -73,26 +76,26 @@ const App = () => {
               <Route path="/admin/analytics" element={<PageWithLayout><ProtectedRoute requireAdmin={true}><AdminDashboard /></ProtectedRoute></PageWithLayout>} />
               <Route path="/admin/logs" element={<PageWithLayout><ProtectedRoute requireAdmin={true}><AuditLogs /></ProtectedRoute></PageWithLayout>} />
               <Route path="/audit-logs" element={<PageWithLayout><ProtectedRoute requireAdmin={true}><AuditLogs /></ProtectedRoute></PageWithLayout>} />
-              <Route path="/inventory" element={<PageWithLayout><ProtectedRoute><Inventory /></ProtectedRoute></PageWithLayout>} />
-              <Route path="/sales" element={<PageWithLayout><ProtectedRoute><Sales /></ProtectedRoute></PageWithLayout>} />
-              <Route path="/sales/new" element={<PageWithLayout><ProtectedRoute><Sales /></ProtectedRoute></PageWithLayout>} />
+              <Route path="/inventory" element={<PageWithLayout><ProtectedRoute allowedRoles={['admin', 'employee']}><Inventory /></ProtectedRoute></PageWithLayout>} />
+              <Route path="/sales" element={<PageWithLayout><ProtectedRoute allowedRoles={['admin', 'employee']}><Sales /></ProtectedRoute></PageWithLayout>} />
+              <Route path="/sales/new" element={<PageWithLayout><ProtectedRoute allowedRoles={['admin', 'employee']}><Sales /></ProtectedRoute></PageWithLayout>} />
               <Route path="/customer/orders" element={<PageWithLayout><ProtectedRoute allowedRoles={['customer']}><Sales /></ProtectedRoute></PageWithLayout>} />
               <Route path="/customer/services" element={<PageWithLayout><ProtectedRoute allowedRoles={['customer']}><Service /></ProtectedRoute></PageWithLayout>} />
               <Route path="/customer/rewards" element={<PageWithLayout><ProtectedRoute allowedRoles={['customer']}><Rewards /></ProtectedRoute></PageWithLayout>} />
               <Route path="/customer/support" element={<PageWithLayout><ProtectedRoute allowedRoles={['customer']}><CustomerDashboard /></ProtectedRoute></PageWithLayout>} />
               <Route path="/employee/performance" element={<PageWithLayout><ProtectedRoute allowedRoles={['employee']}><EmployeeDashboard /></ProtectedRoute></PageWithLayout>} />
               <Route path="/employee/schedule" element={<PageWithLayout><ProtectedRoute allowedRoles={['employee']}><EmployeeDashboard /></ProtectedRoute></PageWithLayout>} />
-              <Route path="/purchases" element={<PageWithLayout><ProtectedRoute><Purchases /></ProtectedRoute></PageWithLayout>} />
-              <Route path="/customers" element={<PageWithLayout><ProtectedRoute><Customers /></ProtectedRoute></PageWithLayout>} />
-              <Route path="/customers/new" element={<PageWithLayout><ProtectedRoute><Customers /></ProtectedRoute></PageWithLayout>} />
-              <Route path="/service" element={<PageWithLayout><ProtectedRoute><Service /></ProtectedRoute></PageWithLayout>} />
-              <Route path="/service/new" element={<PageWithLayout><ProtectedRoute><Service /></ProtectedRoute></PageWithLayout>} />
-              <Route path="/service/schedule" element={<PageWithLayout><ProtectedRoute><Service /></ProtectedRoute></PageWithLayout>} />
-              <Route path="/invoices" element={<PageWithLayout><ProtectedRoute><Invoices /></ProtectedRoute></PageWithLayout>} />
-              <Route path="/invoices/new" element={<PageWithLayout><ProtectedRoute><Invoices /></ProtectedRoute></PageWithLayout>} />
-              <Route path="/invoices/view/:id" element={<PageWithLayout><ProtectedRoute><InvoiceView /></ProtectedRoute></PageWithLayout>} />
-              <Route path="/reports" element={<PageWithLayout><ProtectedRoute><Reports /></ProtectedRoute></PageWithLayout>} />
-              <Route path="/settings" element={<PageWithLayout><ProtectedRoute><Settings /></ProtectedRoute></PageWithLayout>} />
+              <Route path="/purchases" element={<PageWithLayout><ProtectedRoute allowedRoles={['admin', 'employee']}><Purchases /></ProtectedRoute></PageWithLayout>} />
+              <Route path="/customers" element={<PageWithLayout><ProtectedRoute allowedRoles={['admin', 'employee']}><Customers /></ProtectedRoute></PageWithLayout>} />
+              <Route path="/customers/new" element={<PageWithLayout><ProtectedRoute allowedRoles={['admin', 'employee']}><Customers /></ProtectedRoute></PageWithLayout>} />
+              <Route path="/service" element={<PageWithLayout><ProtectedRoute allowedRoles={['admin', 'employee']}><Service /></ProtectedRoute></PageWithLayout>} />
+              <Route path="/service/new" element={<PageWithLayout><ProtectedRoute allowedRoles={['admin', 'employee']}><Service /></ProtectedRoute></PageWithLayout>} />
+              <Route path="/service/schedule" element={<PageWithLayout><ProtectedRoute allowedRoles={['admin', 'employee']}><Service /></ProtectedRoute></PageWithLayout>} />
+              <Route path="/invoices" element={<PageWithLayout><ProtectedRoute allowedRoles={['admin', 'employee']}><Invoices /></ProtectedRoute></PageWithLayout>} />
+              <Route path="/invoices/new" element={<PageWithLayout><ProtectedRoute allowedRoles={['admin', 'employee']}><Invoices /></ProtectedRoute></PageWithLayout>} />
+              <Route path="/invoices/view/:id" element={<PageWithLayout><ProtectedRoute allowedRoles={['admin', 'employee']}><InvoiceView /></ProtectedRoute></PageWithLayout>} />
+              <Route path="/reports" element={<PageWithLayout><ProtectedRoute allowedRoles={['admin', 'employee']}><Reports /></ProtectedRoute></PageWithLayout>} />
+              <Route path="/settings" element={<PageWithLayout><ProtectedRoute allowedRoles={['admin', 'employee']}><Settings /></ProtectedRoute></PageWithLayout>} />
               <Route path="/inventory/add" element={<PageWithLayout><ProtectedRoute><Inventory /></ProtectedRoute></PageWithLayout>} />
               <Route path="/quick-entry" element={<PageWithLayout><ProtectedRoute><Inventory /></ProtectedRoute></PageWithLayout>} />
               <Route path="/low-stock-alerts" element={<PageWithLayout><ProtectedRoute requireAdmin={true}><LowStockAlerts /></ProtectedRoute></PageWithLayout>} />
@@ -100,6 +103,9 @@ const App = () => {
               <Route path="/rewards" element={<PageWithLayout><ProtectedRoute allowedRoles={['customer']}><Rewards /></ProtectedRoute></PageWithLayout>} />
               <Route path="/visibility" element={<PageWithLayout><ProtectedRoute><VisibilityCenter /></ProtectedRoute></PageWithLayout>} />
               <Route path="/enhanced-dashboard" element={<PageWithLayout><ProtectedRoute><EnhancedDashboard /></ProtectedRoute></PageWithLayout>} />
+              <Route path="/warranty" element={<PageWithLayout><ProtectedRoute allowedRoles={['admin', 'employee']}><WarrantyRegistry /></ProtectedRoute></PageWithLayout>} />
+              <Route path="/assembly" element={<PageWithLayout><ProtectedRoute allowedRoles={['admin', 'employee']}><Assembly /></ProtectedRoute></PageWithLayout>} />
+              <Route path="/payments" element={<PageWithLayout><ProtectedRoute allowedRoles={['admin', 'employee']}><PaymentSchedules /></ProtectedRoute></PageWithLayout>} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

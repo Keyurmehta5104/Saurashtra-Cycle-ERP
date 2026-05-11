@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, Plus, Truck, Calendar, Eye, Loader2, X, Package, FileText, Settings, CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,9 @@ import { COLLECTIONS } from "@/lib/firebaseCollections";
 import { PurchaseOrder, InventoryItem, LineItem } from "@/types/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { InvoiceGenerator } from "@/components/InvoiceGenerator";
+import { createPurchaseOrder, receivePurchaseWithStockUpdate, cancelPurchaseOrder } from "@/lib/purchaseTransaction";
+import { useAuth } from "@/contexts/AuthContext";
+import { getNextNumber } from "@/lib/autoInvoiceNumber";
 
 const statusClasses = {
   Received: "bg-success/10 text-success",
@@ -47,6 +50,22 @@ const paymentClasses = {
 export default function Purchases() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isGeneratingNumber, setIsGeneratingNumber] = useState(false);
+
+  // Auto-generate PO number each time the dialog opens
+  useEffect(() => {
+    if (isAddOpen) {
+      setIsGeneratingNumber(true);
+      getNextNumber("purchase")
+        .then((num) => {
+          setNewPO((prev) => ({ ...prev, poNumber: num }));
+        })
+        .catch((err) => {
+          console.error("Failed to generate PO number:", err);
+        })
+        .finally(() => setIsGeneratingNumber(false));
+    }
+  }, [isAddOpen]);
   
   // Status update state
   const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
@@ -116,11 +135,13 @@ export default function Purchases() {
     payment: "Unpaid",
     tax: 0,
     notes: "",
+    poNumber: "", // New field for internal tracking
   });
 
-  const { data: purchaseOrders, loading: poLoading, add: addPO, update } = useFirestoreCollection<PurchaseOrder>(COLLECTIONS.PURCHASES);
+  const { data: purchaseOrders, loading: poLoading, update } = useFirestoreCollection<PurchaseOrder>(COLLECTIONS.PURCHASES);
   const { data: inventoryData, loading: inventoryLoading } = useFirestoreCollection<InventoryItem>(COLLECTIONS.INVENTORY);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const loading = poLoading || inventoryLoading;
 
@@ -175,7 +196,7 @@ export default function Purchases() {
 
     try {
       const purchaseOrder: Omit<PurchaseOrder, "id"> = {
-        poNumber: `PO-${Date.now()}`,
+        poNumber: newPO.poNumber || `PO-${Date.now()}`,
         supplier: newPO.supplier,
         supplierPhone: newPO.supplierPhone,
         orderDate: newPO.orderDate || new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
@@ -211,8 +232,9 @@ export default function Purchases() {
         cardHolderName: newPO.cardHolderName,
       };
 
-      await addPO(purchaseOrder);
-      
+      // Use dedicated transaction function (no stock update on create, only on Receive)
+      await createPurchaseOrder(purchaseOrder);
+
       // Show PO document
       setPoData(purchaseOrder as PurchaseOrder);
       setShowPO(true);
@@ -260,8 +282,8 @@ export default function Purchases() {
 
   const filteredOrders = purchaseOrders.filter(
     (order) =>
-      order.supplier?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.poNumber?.toLowerCase().includes(searchQuery.toLowerCase())
+      (order.supplier?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
+      (order.poNumber?.toLowerCase() || "").includes(searchQuery.toLowerCase())
   );
 
   const totalAmount = purchaseOrders.reduce((acc, p) => acc + (typeof p.total === 'number' ? p.total : 0), 0);
@@ -306,7 +328,7 @@ export default function Purchases() {
         </div>
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button className="btn-primary">
               <Plus className="w-4 h-4 mr-2" />
               New Purchase Order
             </Button>
@@ -317,7 +339,21 @@ export default function Purchases() {
             </DialogHeader>
             <div className="space-y-6">
               {/* Bill and Supplier Info */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div>
+                  <Label>PO Number</Label>
+                  <div className="relative">
+                    <Input
+                      value={newPO.poNumber}
+                      readOnly
+                      className="bg-secondary/50 font-mono font-semibold text-primary cursor-default"
+                      placeholder={isGeneratingNumber ? "Generating..." : "PO-XXXX"}
+                    />
+                    {isGeneratingNumber && (
+                      <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
+                    )}
+                  </div>
+                </div>
                 <div>
                   <Label>Book No.</Label>
                   <Input value={newPO.bookNo} onChange={(e) => setNewPO({ ...newPO, bookNo: e.target.value })} placeholder="e.g. P-1" />
@@ -699,44 +735,44 @@ export default function Purchases() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <div className="bg-card p-4 rounded-xl border border-border/50">
+        <div className="metric-card">
           <div className="flex items-center gap-2 mb-2">
             <Truck className="w-5 h-5 text-primary" />
-            <span className="text-sm text-muted-foreground">In Transit</span>
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">In Transit</span>
           </div>
-          <p className="text-2xl font-bold font-heading text-foreground">{inTransit}</p>
+          <p className="text-2xl font-bold text-foreground">{inTransit}</p>
         </div>
-        <div className="bg-card p-4 rounded-xl border border-border/50">
-          <p className="text-sm text-muted-foreground">Total Amount</p>
-          <p className="text-2xl font-bold font-heading text-foreground">₹{typeof totalAmount === 'number' ? totalAmount.toLocaleString() : '0'}</p>
+        <div className="metric-card">
+          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Total Amount</p>
+          <p className="text-2xl font-bold text-foreground">₹{typeof totalAmount === 'number' ? totalAmount.toLocaleString() : '0'}</p>
         </div>
-        <div className="bg-card p-4 rounded-xl border border-border/50">
-          <p className="text-sm text-muted-foreground">Pending Payments</p>
-          <p className="text-2xl font-bold font-heading text-warning">₹{typeof pendingPayments === 'number' ? pendingPayments.toLocaleString() : '0'}</p>
+        <div className="metric-card border-l-4 border-l-warning">
+          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Pending Payments</p>
+          <p className="text-2xl font-bold text-warning">₹{typeof pendingPayments === 'number' ? pendingPayments.toLocaleString() : '0'}</p>
         </div>
-        <div className="bg-card p-4 rounded-xl border border-border/50">
-          <p className="text-sm text-muted-foreground">Total Orders</p>
-          <p className="text-2xl font-bold font-heading text-foreground">{purchaseOrders.length}</p>
+        <div className="metric-card">
+          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Total Orders</p>
+          <p className="text-2xl font-bold text-foreground">{purchaseOrders.length}</p>
         </div>
-        <div className="bg-card p-4 rounded-xl border border-border/50">
-          <p className="text-sm text-muted-foreground">Avg Order</p>
-          <p className="text-2xl font-bold font-heading text-foreground">₹{avgOrderValue.toFixed(2)}</p>
+        <div className="metric-card">
+          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Avg Order</p>
+          <p className="text-2xl font-bold text-foreground">₹{avgOrderValue.toFixed(2)}</p>
         </div>
-        <div className="bg-card p-4 rounded-xl border border-border/50">
-          <p className="text-sm text-muted-foreground">Payment Rate</p>
-          <p className="text-2xl font-bold font-heading text-foreground">{purchaseOrders.length > 0 ? Math.round((paidOrders / purchaseOrders.length) * 100) : 0}%</p>
+        <div className="metric-card">
+          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Payment Rate</p>
+          <p className="text-2xl font-bold text-foreground">{purchaseOrders.length > 0 ? Math.round((paidOrders / purchaseOrders.length) * 100) : 0}%</p>
         </div>
       </div>
       
       {/* Supplier Insights */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-card p-4 rounded-xl border border-border/50">
-          <h3 className="font-semibold mb-3">Top Suppliers</h3>
-          <div className="space-y-2">
+        <div className="card-enhanced p-5">
+          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4">Top Suppliers</h3>
+          <div className="space-y-3">
             {topSuppliers.map((supplier, index) => (
-              <div key={index} className="flex justify-between items-center">
-                <span className="text-sm">{supplier.name}</span>
-                <span className="text-sm font-medium">₹{supplier.amount.toLocaleString()}</span>
+              <div key={index} className="flex justify-between items-center pb-2 border-b border-border last:border-0 last:pb-0">
+                <span className="text-sm font-medium">{supplier.name}</span>
+                <span className="text-sm font-bold text-primary">₹{supplier.amount.toLocaleString()}</span>
               </div>
             ))}
             {topSuppliers.length === 0 && (
@@ -745,24 +781,24 @@ export default function Purchases() {
           </div>
         </div>
         
-        <div className="bg-card p-4 rounded-xl border border-border/50">
-          <h3 className="font-semibold mb-3">Order Status</h3>
-          <div className="space-y-2">
+        <div className="card-enhanced p-5">
+          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4">Order Status Breakdown</h3>
+          <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <span className="text-sm">Pending</span>
-              <span className="text-sm font-medium">{purchaseOrders.filter(p => p.status === "Pending").length}</span>
+              <span className="text-sm font-medium">Pending</span>
+              <span className="text-sm font-bold bg-warning/10 text-warning px-2 py-0.5 rounded">{purchaseOrders.filter(p => p.status === "Pending").length}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm">Approved</span>
-              <span className="text-sm font-medium">{purchaseOrders.filter(p => p.status === "Approved").length}</span>
+              <span className="text-sm font-medium">Approved</span>
+              <span className="text-sm font-bold bg-primary/10 text-primary px-2 py-0.5 rounded">{purchaseOrders.filter(p => p.status === "Approved").length}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm">Received</span>
-              <span className="text-sm font-medium">{receivedOrders}</span>
+              <span className="text-sm font-medium">Received</span>
+              <span className="text-sm font-bold bg-success/10 text-success px-2 py-0.5 rounded">{receivedOrders}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-destructive">Cancelled</span>
-              <span className="text-sm font-medium text-destructive">{cancelledOrders}</span>
+              <span className="text-sm font-medium text-destructive">Cancelled</span>
+              <span className="text-sm font-bold bg-destructive/10 text-destructive px-2 py-0.5 rounded">{cancelledOrders}</span>
             </div>
           </div>
         </div>
@@ -776,21 +812,21 @@ export default function Purchases() {
             placeholder="Search orders or suppliers..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+            className="pl-10 input-enhanced"
           />
         </div>
-        <Button variant="outline">
+        <Button variant="outline" className="btn-secondary h-10">
           <Calendar className="w-4 h-4 mr-2" />
           Date Range
         </Button>
       </div>
 
       {/* Table */}
-      <div className="bg-card rounded-xl border border-border/50 shadow-sm overflow-hidden">
+      <div className="card-enhanced">
         <div className="overflow-x-auto">
-          <Table>
+          <Table className="table-enhanced">
             <TableHeader>
-              <TableRow className="bg-secondary/50">
+              <TableRow>
                 <TableHead>Order ID</TableHead>
                 <TableHead>Supplier</TableHead>
                 <TableHead className="hidden sm:table-cell">Date</TableHead>
@@ -865,12 +901,31 @@ export default function Purchases() {
                             <Button size="sm" onClick={async () => {
                               if (newStatus) {
                                 try {
-                                  await update(order.id, { status: newStatus });
-                                  toast({ title: "Status updated successfully" });
+                                  if (newStatus === "Received" && order.lineItems && order.lineItems.length > 0) {
+                                    // Atomic: mark received + increase inventory stock in one batch
+                                    await receivePurchaseWithStockUpdate(
+                                      order.id,
+                                      order.lineItems,
+                                      user?.uid ?? "system"
+                                    );
+                                    toast({ title: "Purchase received & inventory updated ✓" });
+                                  } else if (newStatus === "Cancelled") {
+                                    await cancelPurchaseOrder(
+                                      order.id,
+                                      "Cancelled by user",
+                                      user?.uid ?? "system"
+                                    );
+                                    toast({ title: "Purchase order cancelled" });
+                                  } else {
+                                    await update(order.id, { status: newStatus });
+                                    toast({ title: "Status updated successfully" });
+                                  }
                                   setEditingStatusId(null);
                                   setNewStatus(undefined);
                                 } catch (error) {
-                                  toast({ title: "Error updating status", variant: "destructive" });
+                                  const msg = error instanceof Error ? error.message : "Error updating status";
+                                  console.error("PO status update error:", error);
+                                  toast({ title: msg, variant: "destructive" });
                                 }
                               }
                             }}>

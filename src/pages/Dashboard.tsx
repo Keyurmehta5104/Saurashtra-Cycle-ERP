@@ -1,4 +1,4 @@
-import { Package, ShoppingCart, Users, IndianRupee, Bell, Loader2 } from "lucide-react";
+import { Package, ShoppingCart, Users, IndianRupee, Bell, Loader2, LucideIcon } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { RecentSales } from "@/components/dashboard/RecentSales";
 import { InventoryOverview } from "@/components/dashboard/InventoryOverview";
@@ -7,7 +7,7 @@ import { SalesChart } from "@/components/dashboard/SalesChart";
 import { Button } from "@/components/ui/button";
 import { useFirestoreCollection } from "@/hooks/useFirestore";
 import { COLLECTIONS } from "@/lib/firebaseCollections";
-import { SaleOrder, InventoryItem, Customer } from "@/types/firebase";
+import { SaleOrder, InventoryItem, Customer, ServiceJob } from "@/types/firebase";
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,8 +26,9 @@ export default function Dashboard() {
   const { data: salesData, loading: salesLoading } = useFirestoreCollection<SaleOrder>(COLLECTIONS.SALES);
   const { data: inventoryData, loading: inventoryLoading } = useFirestoreCollection<InventoryItem>(COLLECTIONS.INVENTORY);
   const { data: customersData, loading: customersLoading } = useFirestoreCollection<Customer>(COLLECTIONS.CUSTOMERS);
+  const { data: serviceJobs, loading: serviceLoading } = useFirestoreCollection<ServiceJob>(COLLECTIONS.SERVICES);
 
-  const loading = salesLoading || inventoryLoading || customersLoading;
+  const loading = salesLoading || inventoryLoading || customersLoading || serviceLoading;
 
   // Allow all users to access the general dashboard - removing role-based redirection
   /*
@@ -41,11 +42,59 @@ export default function Dashboard() {
   }
   */
 
-  // Calculate stats
-  const totalSales = salesData?.reduce((sum, sale) => sum + (sale.grandTotal || 0), 0) || 0;
-  const totalInventoryValue = inventoryData?.reduce((sum, item) => sum + (item.price * item.stock), 0) || 0;
+  // Calculate stats with defensive checks
+  const totalSales = salesData?.reduce((sum, sale) => sum + (Number(sale?.grandTotal) || 0), 0) || 0;
+  const totalInventoryValue = inventoryData?.reduce((sum, item) => sum + ((Number(item?.price) || 0) * (Number(item?.stock) || 0)), 0) || 0;
   const totalCustomers = customersData?.length || 0;
   const totalItems = inventoryData?.length || 0;
+
+  // Compute real notifications
+  const notifications = useMemo(() => {
+    const list: Array<{ id: string, title: string, description: string, type: 'info' | 'warning' | 'success', icon: LucideIcon }> = [];
+
+    // 1. Most recent sale
+    if (salesData && salesData.length > 0) {
+      const latestSale = [...salesData].sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0))[0];
+      list.push({
+        id: `sale-${latestSale.id}`,
+        title: "New sale order",
+        description: `Order ${latestSale.orderId || latestSale.invoiceNo} for ₹${latestSale.grandTotal?.toLocaleString()}`,
+        type: 'info',
+        icon: ShoppingCart
+      });
+    }
+
+    // 2. Low stock items
+    if (inventoryData) {
+      const lowStockItems = inventoryData.filter(item => item.status === "Low Stock" || (item.stock <= (item.reorderLevel || 5)));
+      lowStockItems.slice(0, 2).forEach(item => {
+      list.push({
+        id: `stock-${item.id}`,
+        title: "Low stock alert",
+        description: `${item.name} has only ${item.stock} left`,
+        type: 'warning',
+        icon: Package
+      });
+    });
+    }
+
+    // 3. Recently completed services
+    if (serviceJobs) {
+      const completedServices = serviceJobs.filter(job => job.status === "Completed");
+      if (completedServices.length > 0) {
+        const latestService = [...completedServices].sort((a, b) => (b.updatedAt?.toMillis() || 0) - (a.updatedAt?.toMillis() || 0))[0];
+        list.push({
+          id: `service-${latestService.id}`,
+          title: "Service completed",
+          description: `${latestService.customer}'s ${latestService.cycle} is ready`,
+          type: 'success',
+          icon: Bell
+        });
+      }
+    }
+
+    return list;
+  }, [salesData, inventoryData, serviceJobs]);
 
   return (
     <div className="space-y-6 p-2 md:p-6 lg:p-8">
@@ -72,27 +121,23 @@ export default function Dashboard() {
             </div>
             <div className="p-4 md:p-6">
               <div className="space-y-4">
-                <div className="flex items-start gap-3 p-3 rounded-xl hover:bg-secondary/30 transition-colors border border-border/30">
-                  <Bell className="w-5 h-5 text-primary mt-0.5" />
-                  <div>
-                    <p className="font-medium text-foreground">New sale order</p>
-                    <p className="text-sm text-muted-foreground">Order #SCH-00123 has been placed</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3 p-3 rounded-xl hover:bg-secondary/30 transition-colors border border-border/30">
-                  <Bell className="w-5 h-5 text-warning mt-0.5" />
-                  <div>
-                    <p className="font-medium text-foreground">Low stock alert</p>
-                    <p className="text-sm text-muted-foreground">Bicycle Chain has low stock</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3 p-3 rounded-xl hover:bg-secondary/30 transition-colors border border-border/30">
-                  <Bell className="w-5 h-5 text-success mt-0.5" />
-                  <div>
-                    <p className="font-medium text-foreground">Service completed</p>
-                    <p className="text-sm text-muted-foreground">Rajesh's bicycle repair is complete</p>
-                  </div>
-                </div>
+                {notifications.length > 0 ? (
+                  notifications.map((n) => (
+                    <div key={n.id} className="flex items-start gap-3 p-3 rounded-xl hover:bg-secondary/30 transition-colors border border-border/30">
+                      <n.icon className={`w-5 h-5 mt-0.5 ${
+                        n.type === 'warning' ? 'text-warning' : 
+                        n.type === 'success' ? 'text-success' : 
+                        'text-primary'
+                      }`} />
+                      <div>
+                        <p className="font-medium text-foreground">{n.title}</p>
+                        <p className="text-sm text-muted-foreground">{n.description}</p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-center text-muted-foreground py-4">No new notifications</p>
+                )}
               </div>
             </div>
           </div>
@@ -104,9 +149,11 @@ export default function Dashboard() {
         <div className="card-enhanced bg-card border border-border/50 shadow-lg">
           <RecentSales />
         </div>
-        <div className="card-enhanced bg-card border border-border/50 shadow-lg">
-          <UserActivityLogs />
-        </div>
+        {user?.role !== 'customer' && (
+          <div className="card-enhanced bg-card border border-border/50 shadow-lg">
+            <UserActivityLogs />
+          </div>
+        )}
       </div>
 
       {/* Inventory Overview */}

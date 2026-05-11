@@ -6,118 +6,109 @@
 
 @layer base {
   :root {
-    /* Light & Modern Color Palette */
-    --background: 0 0% 98%; /* Clean white background */
-    --foreground: 222 47% 15%; /* Dark blue-gray text */
+    /* Clean Enterprise Color Palette (Option B) */
+    --background: 0 0% 98%; /* Light gray app background */
+    --foreground: 222 47% 11%; /* Crisp dark text */
 
     --card: 0 0% 100%; /* Pure white cards */
-    --card-foreground: 222 47% 15%; /* Dark card text */
+    --card-foreground: 222 47% 11%;
 
-    --popover: 0 0% 100%; /* White popover */
-    --popover-foreground: 222 47% 15%; /* Dark popover text */
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
 
-    --primary: 173 58% 45%; /* Teal primary - kept for brand identity */
-    --primary-foreground: 0 0% 100%; /* White primary text */
-
-    --secondary: 210 20% 96%; /* Light gray secondary */
-    --secondary-foreground: 222 47% 20%; /* Dark secondary text */
-
-    --muted: 210 20% 96%; /* Light muted */
-    --muted-foreground: 210 15% 45%; /* Medium gray text */
-
-    --accent: 24 95% 53%; /* Orange accent - kept for vibrancy */
-    --accent-foreground: 0 0% 100%; /* White accent text */
-
-    --destructive: 0 84% 60%; /* Red destructive */
-    --destructive-foreground: 0 0% 100%; /* White destructive text */
-
-    --success: 142 71% 35%; /* Green success */
-    --success-foreground: 0 0% 100%; /* White success text */
-
-    --warning: 38 92% 50%; /* Yellow warning */
-    --warning-foreground: 0 0% 100%; /* White warning text */
-
-    --border: 210 20% 88%; /* Light gray border */
-    --input: 210 20% 96%; /* Light input background */
-    --ring: 173 58% 45%; /* Primary ring */
-
-    --radius: 0.75rem;
-
-    /* Light sidebar */
-    --sidebar-background: 210 20% 98%; /* Very light gray sidebar */
-    --sidebar-foreground: 222 47% 20%; /* Dark sidebar text */
-    --sidebar-primary: 173 58% 45%; /* Primary sidebar */
-    --sidebar-primary-foreground: 0 0% 100%; /* White sidebar primary text */
-    --sidebar-accent: 210 20% 92%; /* Light sidebar accent */
-    --sidebar-accent-foreground: 222 47% 20%; /* Dark sidebar accent text */
-    --sidebar-border: 210 20% 90%; /* Light sidebar border */
-    --sidebar-ring: 173 58% 45%; /* Primary sidebar ring */
-
-    --chart-1: 173 58% 39%;
-    --chart-2: 24 95% 53%;
-    --chart-3: 142 71% 35%;
-    --chart-4: 38 92% 50%;
-    --chart-5: 210 80% 50%;
-
-    /* Bright & Modern Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(173 58% 45%), hsl(173 65% 50%));
-    --gradient-accent: linear-gradient(135deg, hsl(24 95% 53%), hsl(24 95% 60%));
-    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%), hsl(210 20% 98%));
-
-    /* Light & Soft Shadows */
-    --shadow-sm: 0 1px 2px 0 hsl(220 40% 85% / 0.3);
-    --shadow-md: 0 4px 6px -1px hsl(220 40% 85% / 0.3), 0 2px 4px -2px hsl(220 40% 85% / 0.3);
-    --shadow-lg: 0 10px 15px -3px hsl(220 40% 85% / 0.4), 0 4px 6px -4px hsl(220 40% 85% / 0.4);
-    --shadow-glow: 0 0 30px hsl(173 58% 45% / 0.4);
-
-    --font-heading: 'Outfit', sans-serif;
-    --font-body: 'Inter', sans-serif;
-  }
-
-  .dark {
-    /* Keeping dark mode as alternative */
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
-
-    --card: 222 40% 15%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 220 15% 20%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 173 58% 45%;
+    --primary: 221 83% 53%; /* Enterprise Blue (Tailwind blue-600) */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 217 32% 17%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%; /* Crisp light gray */
+    --secondary-foreground: 222 47% 11%;
 
-    --muted: 217 32% 17%;
-    --muted-foreground: 210 15% 65%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%; /* Slate-500 */
 
-    --accent: 24 95% 53%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 210 40% 96.1%; 
+    --accent-foreground: 222 47% 11%;
 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 0 84.2% 60.2%; /* Crisp Red */
+    --destructive-foreground: 210 40% 98%;
 
-    --success: 142 71% 45%;
+    --success: 142.1 76.2% 36.3%; /* Enterprise Green */
     --success-foreground: 0 0% 100%;
 
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 217 32% 17%;
-    --input: 217 32% 17%;
-    --ring: 173 58% 45%;
+    --border: 214.3 31.8% 91.4%; /* Slate-200 */
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221 83% 53%;
 
-    --sidebar-background: 220 15% 10%;
-    --sidebar-foreground: 210 20% 95%;
-    --sidebar-primary: 173 58% 45%;
+    --radius: 0.5rem; /* Sharper corners for enterprise look */
+
+    /* Sidebar - Crisp White */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 221 83% 53%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 217 32% 15%;
-    --sidebar-accent-foreground: 210 20% 90%;
-    --sidebar-border: 217 32% 15%;
-    --sidebar-ring: 173 58% 45%;
+    --sidebar-accent: 210 40% 96.1%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 214.3 31.8% 91.4%;
+    --sidebar-ring: 221 83% 53%;
+
+    --chart-1: 221 83% 53%;
+    --chart-2: 142.1 76.2% 36.3%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 0 84.2% 60.2%;
+    --chart-5: 215.4 16.3% 46.9%;
+
+    /* Solid colors replacing gradients for Enterprise look */
+    --gradient-primary: hsl(221 83% 53%);
+    --gradient-accent: hsl(210 40% 96.1%);
+    --gradient-card: hsl(0 0% 100%);
+
+    /* Very subtle, crisp shadows */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+    --shadow-glow: 0 0 0 2px hsl(221 83% 53% / 0.2);
+
+    --font-heading: 'Inter', sans-serif; /* Unified font for ultra-clean look */
+    --font-body: 'Inter', sans-serif;
+  }
+
+  .dark {
+    /* Muted Dark Mode for Enterprise */
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 217.2 91.2% 59.8%; /* Blue-400 */
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --success: 142.1 76.2% 36.3%;
+    --success-foreground: 210 40% 98%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224.3 76.3% 48%;
   }
 }
 
@@ -127,81 +118,82 @@
   }
 
   body {
-    @apply bg-gradient-to-br from-background via-background to-gray-50 text-foreground font-body antialiased;
+    @apply bg-background text-foreground font-body antialiased;
   }
 
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading);
+    @apply tracking-tight;
   }
 }
 
 @layer components {
   .glass-card {
-    @apply bg-gradient-to-br from-white to-gray-50/80 backdrop-blur-md border border-white/50 shadow-lg hover:shadow-xl transition-all duration-300;
+    @apply bg-card border border-border shadow-sm;
   }
 
   .metric-card {
-    @apply bg-gradient-to-br from-white to-gray-50 rounded-2xl p-4 md:p-6 border border-gray-100 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1;
+    @apply bg-card rounded-xl p-4 md:p-6 border border-border shadow-sm hover:border-primary/30 transition-colors duration-200;
   }
 
   .sidebar-item {
-    @apply flex items-center gap-3 px-3 py-2.5 rounded-xl text-sidebar-foreground/90 hover:text-sidebar-primary hover:bg-gradient-to-r hover:from-sidebar-accent hover:to-transparent transition-all duration-200 font-medium;
+    @apply flex items-center gap-3 px-3 py-2 rounded-md text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-all duration-200 font-medium text-sm;
   }
 
   .sidebar-item-active {
-    @apply bg-gradient-to-r from-primary/10 to-primary/5 text-primary font-bold shadow-sm border-l-4 border-primary;
+    @apply bg-primary text-primary-foreground font-medium shadow-sm;
   }
 
   .stat-trend-up {
-    @apply text-success inline-flex items-center gap-1 text-sm font-semibold;
+    @apply text-success inline-flex items-center gap-1 text-sm font-medium;
   }
 
   .stat-trend-down {
-    @apply text-destructive inline-flex items-center gap-1 text-sm font-semibold;
+    @apply text-destructive inline-flex items-center gap-1 text-sm font-medium;
   }
 
   .action-button {
-    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-semibold transition-all duration-300 active:scale-[0.95] hover:shadow-lg transform hover:-translate-y-0.5;
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium transition-colors;
   }
 
   .page-title {
-    @apply text-3xl md:text-4xl font-extrabold tracking-tight text-foreground bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent;
+    @apply text-2xl md:text-3xl font-bold tracking-tight text-foreground;
   }
 
   .section-title {
-    @apply text-xl md:text-2xl font-bold text-foreground;
+    @apply text-lg md:text-xl font-semibold text-foreground;
   }
   
-  /* Enhanced button styles */
+  /* Solid, flat buttons */
   .btn-primary {
-    @apply bg-gradient-to-r from-primary to-primary/90 hover:from-primary/80 hover:to-primary/85 text-white font-bold rounded-xl px-6 py-3 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 hover:scale-[1.02];
+    @apply bg-primary hover:bg-primary/90 text-primary-foreground font-medium rounded-md px-4 py-2 transition-colors duration-200 shadow-sm;
   }
   
   .btn-secondary {
-    @apply bg-gradient-to-r from-secondary to-gray-100 hover:from-gray-100 hover:to-gray-50 text-foreground font-bold rounded-xl px-6 py-3 shadow-md hover:shadow-lg transition-all duration-300 transform hover:-translate-y-0.5;
+    @apply bg-secondary hover:bg-secondary/80 text-secondary-foreground font-medium rounded-md px-4 py-2 transition-colors duration-200 border border-border/50;
   }
   
-  /* Enhanced input styles */
+  /* Clean inputs */
   .input-enhanced {
-    @apply bg-white border-2 border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all duration-300 shadow-sm hover:shadow-md text-foreground placeholder:text-gray-400;
+    @apply bg-background border border-input rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring focus:border-input transition-all duration-200 text-sm placeholder:text-muted-foreground;
   }
   
-  /* Enhanced card styles */
+  /* Crisp cards */
   .card-enhanced {
-    @apply bg-gradient-to-br from-white to-gray-50 rounded-2xl border border-gray-100 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 text-foreground overflow-hidden;
+    @apply bg-card rounded-xl border border-border shadow-sm text-foreground overflow-hidden;
   }
   
-  /* Enhanced table styles */
+  /* Structured tables */
   .table-enhanced {
-    @apply w-full text-sm text-foreground;
+    @apply w-full text-sm text-foreground border-collapse;
   }
   
   .table-enhanced th {
-    @apply px-5 py-4 text-left font-bold bg-gradient-to-r from-gray-50 to-gray-100 text-foreground rounded-t-xl border-b-2 border-gray-200;
+    @apply px-4 py-3 text-left font-medium text-muted-foreground border-b border-border bg-muted/40;
   }
   
   .table-enhanced td {
-    @apply px-5 py-4 border-b border-gray-100 text-foreground transition-colors duration-200;
+    @apply px-4 py-3 border-b border-border/50 text-foreground;
   }
   
   .table-enhanced tr:last-child td {
@@ -209,7 +201,7 @@
   }
   
   .table-enhanced tr:hover td {
-    @apply bg-gradient-to-r from-primary/5 to-transparent;
+    @apply bg-muted/20;
   }
 }
 
@@ -231,9 +223,9 @@
     @apply transition-shadow duration-300 hover:shadow-glow;
   }
   
-  /* Gradient text */
+  /* Solid text */
   .gradient-text {
-    @apply bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent;
+    @apply text-foreground;
   }
   
   /* Soft border */
@@ -458,3 +450,32 @@
     transition: none !important;
   }
 }
+
+/* Print Utilities */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  
+  /* Hide everything by default when printing */
+  body * {
+    visibility: hidden;
+  }
+  
+  /* Only show elements with print-section class and their children */
+  .print-section, .print-section * {
+    visibility: visible;
+  }
+  
+  /* Position the print section at the top left of the page */
+  .print-section {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+}
+

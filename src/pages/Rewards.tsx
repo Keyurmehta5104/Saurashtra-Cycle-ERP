@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { Gift, Star, TrendingUp, Calendar, Filter, Search, Award, Heart, Coins, Percent } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Gift, Star, TrendingUp, Calendar, Filter, Search, Award, Heart, Coins, Percent, Trophy, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -11,6 +10,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useFirestoreCollection } from '@/hooks/useFirestore';
+import { COLLECTIONS } from '@/lib/firebaseCollections';
+import { Customer } from '@/types/firebase';
+import { Loader2 } from 'lucide-react';
 
 interface Reward {
   id: string;
@@ -23,309 +26,220 @@ interface Reward {
 }
 
 export default function Rewards() {
-  const [points, setPoints] = useState(1250);
+  const { data: customersData, loading: customersLoading } = useFirestoreCollection<Customer>(COLLECTIONS.CUSTOMERS);
   const [activeTab, setActiveTab] = useState('available');
+  const [searchQuery, setSearchQuery] = useState('');
   
   const rewards: Reward[] = [
     {
       id: 'reward-001',
       title: 'Free Bicycle Service',
-      description: 'Get a free basic service worth ₹750',
+      description: 'Full basic service maintenance for any cycle model.',
       pointsRequired: 2000,
       category: 'service',
       availability: 'available',
-      expiryDate: '2024-03-31'
+      expiryDate: '2024-12-31'
     },
     {
       id: 'reward-002',
-      title: '15% Discount Voucher',
-      description: 'Get 15% off on your next purchase',
-      pointsRequired: 1500,
+      title: '₹500 Discount Voucher',
+      description: 'Direct discount on your next accessories purchase.',
+      pointsRequired: 500,
       category: 'discount',
       availability: 'available',
-      expiryDate: '2024-02-28'
+      expiryDate: '2024-12-31'
     },
     {
       id: 'reward-003',
-      title: 'Premium Helmet',
-      description: 'Free premium helmet worth ₹2500',
-      pointsRequired: 5000,
+      title: 'Premium Alloy Cage',
+      description: 'Complementary bottle cage with installation.',
+      pointsRequired: 1200,
       category: 'free_item',
       availability: 'limited',
-      expiryDate: '2024-01-31'
-    },
-    {
-      id: 'reward-004',
-      title: 'Early Access',
-      description: 'Get early access to new cycle models',
-      pointsRequired: 3000,
-      category: 'exclusive',
-      availability: 'available',
       expiryDate: '2024-06-30'
     },
     {
-      id: 'reward-005',
-      title: 'Free Delivery',
-      description: 'Free delivery on your next order',
-      pointsRequired: 500,
-      category: 'service',
+      id: 'reward-004',
+      title: 'VIP Early Access',
+      description: 'Invitations to exclusive cycle launch events.',
+      pointsRequired: 3000,
+      category: 'exclusive',
       availability: 'available',
-      expiryDate: '2024-02-15'
-    },
-    {
-      id: 'reward-006',
-      title: '20% Off Frame',
-      description: 'Get 20% discount on any bicycle frame',
-      pointsRequired: 2500,
-      category: 'discount',
-      availability: 'limited',
-      expiryDate: '2024-01-20'
-    },
+      expiryDate: '2025-01-01'
+    }
   ];
 
-  const availableRewards = rewards.filter(reward => reward.availability !== 'unavailable');
-  const limitedRewards = rewards.filter(reward => reward.availability === 'limited');
-  const unavailableRewards = rewards.filter(reward => reward.availability === 'unavailable');
+  // Top customers by points
+  const topCustomers = [...(customersData || [])]
+    .sort((a, b) => (b.loyaltyPoints || 0) - (a.loyaltyPoints || 0))
+    .slice(0, 5);
 
-  const getRewardsByTab = () => {
-    switch(activeTab) {
-      case 'available': return availableRewards;
-      case 'limited': return limitedRewards;
-      case 'unavailable': return unavailableRewards;
-      default: return availableRewards;
-    }
-  };
-
-  const getCategoryColor = (category: string) => {
+  const getCategoryBadge = (category: string) => {
     switch(category) {
-      case 'discount': return 'bg-blue-100 text-blue-800';
-      case 'free_item': return 'bg-green-100 text-green-800';
-      case 'service': return 'bg-purple-100 text-purple-800';
-      case 'exclusive': return 'bg-yellow-100 text-yellow-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'discount': return <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700 font-bold text-[10px] uppercase">Discount</Badge>;
+      case 'free_item': return <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700 font-bold text-[10px] uppercase">Free Gift</Badge>;
+      case 'service': return <Badge variant="outline" className="border-purple-200 bg-purple-50 text-purple-700 font-bold text-[10px] uppercase">Service</Badge>;
+      case 'exclusive': return <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700 font-bold text-[10px] uppercase">VIP</Badge>;
+      default: return <Badge variant="outline" className="font-bold text-[10px] uppercase">Other</Badge>;
     }
   };
 
-  const getAvailabilityColor = (availability: string) => {
-    switch(availability) {
-      case 'available': return 'bg-green-100 text-green-800';
-      case 'limited': return 'bg-yellow-100 text-yellow-800';
-      case 'unavailable': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const redeemReward = (reward: Reward) => {
-    if (points >= reward.pointsRequired) {
-      setPoints(points - reward.pointsRequired);
-      // Here you would typically make an API call to redeem the reward
-      alert(`Successfully redeemed: ${reward.title}`);
-    } else {
-      alert('Not enough points to redeem this reward');
-    }
-  };
+  if (customersLoading) {
+    return (
+      <div className="flex items-center justify-center h-[50vh]">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Gift className="w-6 h-6" />
-            Rewards Center
-          </h1>
-          <p className="text-muted-foreground">Redeem your loyalty points for exciting rewards</p>
+    <div className="p-4 md:p-6 lg:p-8 space-y-8 max-w-[1400px] mx-auto">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="space-y-1">
+          <h1 className="page-title">Rewards & Loyalty</h1>
+          <p className="text-muted-foreground text-sm">Manage customer tiers and loyalty point redemptions.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 bg-yellow-50 p-3 rounded-lg border">
-            <Coins className="w-5 h-5 text-yellow-600" />
-            <div>
-              <p className="text-sm text-muted-foreground">Your Points</p>
-              <p className="text-xl font-bold text-yellow-600">{points}</p>
-            </div>
+        <div className="flex items-center gap-4 bg-slate-50 border border-slate-200 p-4 rounded-lg">
+          <div className="text-right">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Active Loyalty Program</p>
+            <p className="text-sm font-bold text-slate-900">₹100 = 1 Point</p>
           </div>
+          <div className="w-px h-8 bg-slate-200" />
+          <Trophy className="w-8 h-8 text-amber-500" />
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Star className="w-5 h-5 text-blue-600" />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left: Top Customers & Earning Rules */}
+        <div className="space-y-8">
+          {/* Top Customers Card */}
+          <div className="card-enhanced p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-sm font-bold text-slate-900 uppercase tracking-tight flex items-center gap-2">
+                <Star className="w-4 h-4 text-amber-500" />
+                Loyalty Leaderboard
+              </h2>
+              <Trophy className="w-4 h-4 text-slate-300" />
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Points Earned</p>
-              <p className="text-xl font-semibold">2,500</p>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <Gift className="w-5 h-5 text-green-600" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Rewards Redeemed</p>
-              <p className="text-xl font-semibold">3</p>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <Award className="w-5 h-5 text-purple-600" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Next Reward</p>
-              <p className="text-xl font-semibold">750 pts</p>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-yellow-100 rounded-lg">
-              <TrendingUp className="w-5 h-5 text-yellow-600" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Points Rate</p>
-              <p className="text-xl font-semibold">1:1</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Reward Categories</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            <Button 
-              variant={activeTab === 'available' ? 'default' : 'outline'}
-              onClick={() => setActiveTab('available')}
-            >
-              <Gift className="w-4 h-4 mr-2" />
-              Available ({availableRewards.length})
-            </Button>
-            <Button 
-              variant={activeTab === 'limited' ? 'default' : 'outline'}
-              onClick={() => setActiveTab('limited')}
-            >
-              <TrendingUp className="w-4 h-4 mr-2" />
-              Limited ({limitedRewards.length})
-            </Button>
-            <Button 
-              variant={activeTab === 'unavailable' ? 'default' : 'outline'}
-              onClick={() => setActiveTab('unavailable')}
-            >
-              <Calendar className="w-4 h-4 mr-2" />
-              Expired ({unavailableRewards.length})
-            </Button>
-          </div>
-          
-          <div className="mt-4 flex gap-2">
-            <Input
-              placeholder="Search rewards..."
-              className="max-w-xs"
-            />
-            <Select defaultValue="all">
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                <SelectItem value="discount">Discounts</SelectItem>
-                <SelectItem value="free_item">Free Items</SelectItem>
-                <SelectItem value="service">Services</SelectItem>
-                <SelectItem value="exclusive">Exclusive</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button variant="outline">
-              <Filter className="w-4 h-4 mr-2" />
-              Filter
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Rewards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {getRewardsByTab().map((reward) => (
-          <Card key={reward.id} className="overflow-hidden">
-            <div className="p-4 bg-gradient-to-r from-primary to-accent text-primary-foreground">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-lg">{reward.title}</h3>
-                <Badge className={getCategoryColor(reward.category)}>
-                  {reward.category.charAt(0).toUpperCase() + reward.category.slice(1)}
-                </Badge>
-              </div>
-              <p className="text-primary-foreground/80 text-sm mt-1">{reward.description}</p>
-            </div>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Coins className="w-5 h-5 text-yellow-500" />
-                  <span className="font-semibold text-lg">{reward.pointsRequired} pts</span>
-                </div>
-                <Badge className={getAvailabilityColor(reward.availability)}>
-                  {reward.availability.charAt(0).toUpperCase() + reward.availability.slice(1)}
-                </Badge>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="w-4 h-4" />
-                    <span>Expires: {reward.expiryDate}</span>
+            <div className="space-y-4">
+              {topCustomers.map((customer, idx) => (
+                <div key={customer.id} className="flex items-center justify-between group">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500 group-hover:bg-primary group-hover:text-white transition-colors">
+                      {idx + 1}
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-900">{customer.name}</p>
+                      <p className="text-[10px] text-slate-500">{customer.phone}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-black text-primary">{customer.loyaltyPoints || 0}</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Points</p>
                   </div>
                 </div>
-                <Button 
-                  disabled={points < reward.pointsRequired || reward.availability === 'unavailable'}
-                  onClick={() => redeemReward(reward)}
-                >
-                  {points < reward.pointsRequired ? 'Insufficient Points' : 'Redeem Now'}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+              ))}
+            </div>
+            <Button variant="ghost" className="w-full mt-6 text-xs font-bold text-primary hover:bg-primary/5 uppercase tracking-widest">
+              View All Customers
+            </Button>
+          </div>
 
-      {/* How to earn points section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>How to Earn Points</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="flex flex-col items-center text-center p-4 border rounded-lg">
-              <Percent className="w-8 h-8 text-blue-500 mb-2" />
-              <h3 className="font-semibold">Purchase Bonus</h3>
-              <p className="text-sm text-muted-foreground">Earn 1 point per ₹10 spent</p>
-            </div>
-            <div className="flex flex-col items-center text-center p-4 border rounded-lg">
-              <Heart className="w-8 h-8 text-red-500 mb-2" />
-              <h3 className="font-semibold">Loyalty Bonus</h3>
-              <p className="text-sm text-muted-foreground">Extra points for returning customers</p>
-            </div>
-            <div className="flex flex-col items-center text-center p-4 border rounded-lg">
-              <Award className="w-8 h-8 text-green-500 mb-2" />
-              <h3 className="font-semibold">Reviews</h3>
-              <p className="text-sm text-muted-foreground">50 points per product review</p>
-            </div>
-            <div className="flex flex-col items-center text-center p-4 border rounded-lg">
-              <Star className="w-8 h-8 text-yellow-500 mb-2" />
-              <h3 className="font-semibold">Referrals</h3>
-              <p className="text-sm text-muted-foreground">200 points per successful referral</p>
+          {/* Earning Rules Card */}
+          <div className="bg-slate-900 text-white p-6 rounded-lg shadow-xl relative overflow-hidden">
+            <Percent className="absolute -right-4 -bottom-4 w-24 h-24 text-white/5 rotate-12" />
+            <h3 className="text-xs font-black uppercase tracking-[0.2em] mb-4 text-slate-400">Earning Rules</h3>
+            <div className="space-y-4">
+              <div className="flex items-start gap-3">
+                <Coins className="w-5 h-5 text-amber-400 mt-0.5" />
+                <div>
+                  <p className="text-sm font-bold">Standard Purchase</p>
+                  <p className="text-xs text-slate-400">Earn 1 point for every ₹100 spent on any cycle or accessory.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <Heart className="w-5 h-5 text-rose-400 mt-0.5" />
+                <div>
+                  <p className="text-sm font-bold">First Purchase Bonus</p>
+                  <p className="text-xs text-slate-400">Extra 50 points on the first purchase above ₹10,000.</p>
+                </div>
+              </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+
+        {/* Right: Reward Catalog */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-2">
+             <div className="relative flex-1 w-full max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input
+                placeholder="Search rewards catalog..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 input-enhanced"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant={activeTab === 'available' ? 'default' : 'secondary'} 
+                onClick={() => setActiveTab('available')}
+                className="h-9 text-[10px] font-bold uppercase tracking-widest"
+              >
+                Available
+              </Button>
+              <Button 
+                variant={activeTab === 'premium' ? 'default' : 'secondary'} 
+                onClick={() => setActiveTab('premium')}
+                className="h-9 text-[10px] font-bold uppercase tracking-widest"
+              >
+                Premium
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {rewards.map((reward) => (
+              <div key={reward.id} className="card-enhanced p-5 flex flex-col justify-between hover:border-primary/30 transition-colors">
+                <div>
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="bg-slate-50 p-3 rounded border border-slate-100">
+                      <Gift className="w-5 h-5 text-primary" />
+                    </div>
+                    {getCategoryBadge(reward.category)}
+                  </div>
+                  <h3 className="text-base font-bold text-slate-900 mb-1">{reward.title}</h3>
+                  <p className="text-xs text-slate-500 leading-relaxed mb-4">{reward.description}</p>
+                </div>
+                
+                <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Required</p>
+                    <div className="flex items-center gap-1.5">
+                      <Coins className="w-4 h-4 text-amber-500" />
+                      <p className="text-lg font-black text-slate-900">{reward.pointsRequired}</p>
+                    </div>
+                  </div>
+                  <Button className="btn-primary h-9 px-6 text-[10px] font-bold uppercase tracking-widest shadow-none">
+                    Redeem
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Quick Redemption Help */}
+          <div className="bg-blue-50 border border-blue-100 p-4 rounded-lg flex items-start gap-3 mt-8">
+            <div className="bg-blue-600 p-1.5 rounded-full text-white mt-0.5">
+              <User className="w-3 h-3" />
+            </div>
+            <p className="text-xs text-blue-800 leading-relaxed">
+              <strong>Admin Tip:</strong> Points are redeemed by selecting the customer during sales checkout. The available discount will appear in the invoice summary once a customer with sufficient points is selected.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

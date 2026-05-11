@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { Search, Plus, Filter, Edit, Trash2, Loader2, Package, AlertTriangle } from "lucide-react";
+import { Search, Plus, Filter, Edit, Trash2, Loader2, Package, AlertTriangle, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -30,6 +30,9 @@ import { useFirestoreCollection } from "@/hooks/useFirestore";
 import { COLLECTIONS } from "@/lib/firebaseCollections";
 import { InventoryItem } from "@/types/firebase";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { updateInventoryWithLedger } from "@/lib/stockLedger";
+import { StockHistoryDialog } from "@/components/inventory/StockHistoryDialog";
 
 const statusClasses = {
   "In Stock": "bg-success/10 text-success",
@@ -38,9 +41,12 @@ const statusClasses = {
 };
 
 export default function Inventory() {
+  const { user, isStaff } = useAuth();
   const location = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("name_asc");
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [currentItem, setCurrentItem] = useState<InventoryItem & {
@@ -51,6 +57,8 @@ export default function Inventory() {
     supplierContact?: string;
     warrantyPeriod?: string;
   } | null>(null);
+  const [historyItem, setHistoryItem] = useState<InventoryItem | null>(null);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   useEffect(() => {
     if (location.pathname === "/inventory/add") {
@@ -78,6 +86,7 @@ export default function Inventory() {
 
   const { data: inventoryData, loading, add, remove, update } = useFirestoreCollection<InventoryItem>(COLLECTIONS.INVENTORY);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const getStatus = (stock: number, reorderLevel?: number): "In Stock" | "Low Stock" | "Out of Stock" => {
     if (stock === 0) return "Out of Stock";
@@ -86,6 +95,17 @@ export default function Inventory() {
   };
 
   const handleAddProduct = async () => {
+    // Check for duplicate SKU
+    if (inventoryData.some(item => item.sku.toLowerCase() === newProduct.sku.toLowerCase())) {
+      toast({ title: "SKU already exists!", description: "Please use a unique SKU.", variant: "destructive" });
+      return;
+    }
+
+    if (newProduct.stock < 0) {
+      toast({ title: "Invalid Stock", description: "Stock cannot be negative.", variant: "destructive" });
+      return;
+    }
+
     try {
       await add({
         ...newProduct,
@@ -110,7 +130,35 @@ export default function Inventory() {
 
   const handleEditProduct = async () => {
     if (!currentItem) return;
+
+    if (currentItem.stock < 0) {
+      toast({ title: "Invalid Stock", description: "Stock cannot be negative.", variant: "destructive" });
+      return;
+    }
+
+    // Check duplicate SKU if SKU was changed
+    const originalItem = inventoryData.find(i => i.id === currentItem.id);
+    if (originalItem && originalItem.sku !== currentItem.sku) {
+      if (inventoryData.some(item => item.sku.toLowerCase() === currentItem.sku.toLowerCase() && item.id !== currentItem.id)) {
+        toast({ title: "SKU already exists!", description: "Please use a unique SKU.", variant: "destructive" });
+        return;
+      }
+    }
+
     try {
+      // If stock changed, use the ledger
+      if (originalItem && originalItem.stock !== currentItem.stock) {
+        await updateInventoryWithLedger(
+          currentItem.id,
+          currentItem.name,
+          currentItem.sku,
+          currentItem.stock,
+          originalItem.stock,
+          user?.uid || "unknown",
+          "Manual adjustment from Inventory UI"
+        );
+      }
+
       await update(currentItem.id, {
         ...currentItem,
         status: getStatus(currentItem.stock, currentItem.reorderLevel),
@@ -138,11 +186,24 @@ export default function Inventory() {
 
   const filteredData = inventoryData.filter((item) => {
     const matchesSearch =
-      item.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.sku?.toLowerCase().includes(searchQuery.toLowerCase());
+      (item.name?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
+      (item.sku?.toLowerCase() || "").includes(searchQuery.toLowerCase());
     const matchesCategory =
       categoryFilter === "all" || item.category === categoryFilter;
-    return matchesSearch && matchesCategory;
+    const matchesStatus = 
+      statusFilter === "all" || item.status === statusFilter;
+    return matchesSearch && matchesCategory && matchesStatus;
+  }).sort((a, b) => {
+    switch (sortBy) {
+      case "stock_asc": return a.stock - b.stock;
+      case "stock_desc": return b.stock - a.stock;
+      case "price_asc": return a.price - b.price;
+      case "price_desc": return b.price - a.price;
+      case "name_desc": return (b.name || "").localeCompare(a.name || "");
+      case "name_asc": 
+      default:
+        return (a.name || "").localeCompare(b.name || "");
+    }
   });
 
   if (loading) {
@@ -198,106 +259,108 @@ export default function Inventory() {
             <Package className="w-4 h-4 mr-2" />
             Export
           </Button>
-          <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Add Product
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Add New Product</DialogTitle>
-              </DialogHeader>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div>
-                    <Label>SKU</Label>
-                    <Input value={newProduct.sku} onChange={(e) => setNewProduct({ ...newProduct, sku: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>Product Name</Label>
-                    <Input value={newProduct.name} onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>Category</Label>
-                    <Select value={newProduct.category} onValueChange={(v) => setNewProduct({ ...newProduct, category: v })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Mountain Bike">Mountain Bike</SelectItem>
-                        <SelectItem value="Road Bike">Road Bike</SelectItem>
-                        <SelectItem value="Hybrid Bike">Hybrid Bike</SelectItem>
-                        <SelectItem value="Kids Cycle">Kids Cycle</SelectItem>
-                        <SelectItem value="Accessories">Accessories</SelectItem>
-                        <SelectItem value="Spare Parts">Spare Parts</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
+          {isStaff && (
+            <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Product
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Add New Product</DialogTitle>
+                </DialogHeader>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
                     <div>
-                      <Label>Brand</Label>
-                      <Input value={newProduct.brand} onChange={(e) => setNewProduct({ ...newProduct, brand: e.target.value })} />
+                      <Label>SKU</Label>
+                      <Input value={newProduct.sku} onChange={(e) => setNewProduct({ ...newProduct, sku: e.target.value })} />
                     </div>
                     <div>
-                      <Label>Model</Label>
-                      <Input value={newProduct.model} onChange={(e) => setNewProduct({ ...newProduct, model: e.target.value })} />
+                      <Label>Product Name</Label>
+                      <Input value={newProduct.name} onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })} />
+                    </div>
+                    <div>
+                      <Label>Category</Label>
+                      <Select value={newProduct.category} onValueChange={(v) => setNewProduct({ ...newProduct, category: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Mountain Bike">Mountain Bike</SelectItem>
+                          <SelectItem value="Road Bike">Road Bike</SelectItem>
+                          <SelectItem value="Hybrid Bike">Hybrid Bike</SelectItem>
+                          <SelectItem value="Kids Cycle">Kids Cycle</SelectItem>
+                          <SelectItem value="Accessories">Accessories</SelectItem>
+                          <SelectItem value="Spare Parts">Spare Parts</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Brand</Label>
+                        <Input value={newProduct.brand} onChange={(e) => setNewProduct({ ...newProduct, brand: e.target.value })} />
+                      </div>
+                      <div>
+                        <Label>Model</Label>
+                        <Input value={newProduct.model} onChange={(e) => setNewProduct({ ...newProduct, model: e.target.value })} />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Color</Label>
+                        <Input value={newProduct.color} onChange={(e) => setNewProduct({ ...newProduct, color: e.target.value })} />
+                      </div>
+                      <div>
+                        <Label>Size</Label>
+                        <Input value={newProduct.size} onChange={(e) => setNewProduct({ ...newProduct, size: e.target.value })} />
+                      </div>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Color</Label>
-                      <Input value={newProduct.color} onChange={(e) => setNewProduct({ ...newProduct, color: e.target.value })} />
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Stock</Label>
+                        <Input type="number" value={newProduct.stock} onChange={(e) => setNewProduct({ ...newProduct, stock: parseInt(e.target.value) || 0 })} />
+                      </div>
+                      <div>
+                        <Label>Reorder Level</Label>
+                        <Input type="number" value={newProduct.reorderLevel} onChange={(e) => setNewProduct({ ...newProduct, reorderLevel: parseInt(e.target.value) || 10 })} />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Selling Price (₹)</Label>
+                        <Input type="number" value={newProduct.price} onChange={(e) => setNewProduct({ ...newProduct, price: parseInt(e.target.value) || 0 })} />
+                      </div>
+                      <div>
+                        <Label>Cost Price (₹)</Label>
+                        <Input type="number" value={newProduct.cost} onChange={(e) => setNewProduct({ ...newProduct, cost: parseInt(e.target.value) || 0 })} />
+                      </div>
                     </div>
                     <div>
-                      <Label>Size</Label>
-                      <Input value={newProduct.size} onChange={(e) => setNewProduct({ ...newProduct, size: e.target.value })} />
+                      <Label>Warranty Period</Label>
+                      <Input value={newProduct.warrantyPeriod} onChange={(e) => setNewProduct({ ...newProduct, warrantyPeriod: e.target.value })} placeholder="e.g., 1 year, 6 months" />
+                    </div>
+                    <div>
+                      <Label>Supplier</Label>
+                      <Input value={newProduct.supplier} onChange={(e) => setNewProduct({ ...newProduct, supplier: e.target.value })} />
+                    </div>
+                    <div>
+                      <Label>Supplier Contact</Label>
+                      <Input value={newProduct.supplierContact} onChange={(e) => setNewProduct({ ...newProduct, supplierContact: e.target.value })} />
+                    </div>
+                    <div>
+                      <Label>Description</Label>
+                      <Input value={newProduct.description} onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })} placeholder="Product description..." />
                     </div>
                   </div>
                 </div>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Stock</Label>
-                      <Input type="number" value={newProduct.stock} onChange={(e) => setNewProduct({ ...newProduct, stock: parseInt(e.target.value) || 0 })} />
-                    </div>
-                    <div>
-                      <Label>Reorder Level</Label>
-                      <Input type="number" value={newProduct.reorderLevel} onChange={(e) => setNewProduct({ ...newProduct, reorderLevel: parseInt(e.target.value) || 10 })} />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Selling Price (₹)</Label>
-                      <Input type="number" value={newProduct.price} onChange={(e) => setNewProduct({ ...newProduct, price: parseInt(e.target.value) || 0 })} />
-                    </div>
-                    <div>
-                      <Label>Cost Price (₹)</Label>
-                      <Input type="number" value={newProduct.cost} onChange={(e) => setNewProduct({ ...newProduct, cost: parseInt(e.target.value) || 0 })} />
-                    </div>
-                  </div>
-                  <div>
-                    <Label>Warranty Period</Label>
-                    <Input value={newProduct.warrantyPeriod} onChange={(e) => setNewProduct({ ...newProduct, warrantyPeriod: e.target.value })} placeholder="e.g., 1 year, 6 months" />
-                  </div>
-                  <div>
-                    <Label>Supplier</Label>
-                    <Input value={newProduct.supplier} onChange={(e) => setNewProduct({ ...newProduct, supplier: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>Supplier Contact</Label>
-                    <Input value={newProduct.supplierContact} onChange={(e) => setNewProduct({ ...newProduct, supplierContact: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>Description</Label>
-                    <Input value={newProduct.description} onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })} placeholder="Product description..." />
-                  </div>
+                <div className="pt-4">
+                  <Button onClick={handleAddProduct} className="w-full">Add Product</Button>
                 </div>
-              </div>
-              <div className="pt-4">
-                <Button onClick={handleAddProduct} className="w-full">Add Product</Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
       </div>
 
@@ -309,24 +372,53 @@ export default function Inventory() {
             placeholder="Search products..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+            className="pl-10 input-enhanced"
           />
         </div>
-        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-full sm:w-48">
-            <Filter className="w-4 h-4 mr-2" />
-            <SelectValue placeholder="Category" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
-            <SelectItem value="Mountain Bike">Mountain Bike</SelectItem>
-            <SelectItem value="Road Bike">Road Bike</SelectItem>
-            <SelectItem value="Hybrid Bike">Hybrid Bike</SelectItem>
-            <SelectItem value="Kids Cycle">Kids Cycle</SelectItem>
-            <SelectItem value="Accessories">Accessories</SelectItem>
-            <SelectItem value="Spare Parts">Spare Parts</SelectItem>
-          </SelectContent>
-        </Select>
+        
+        <div className="flex flex-wrap gap-2">
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-full sm:w-40 h-10 border-border">
+              <Filter className="w-4 h-4 mr-2" />
+              <SelectValue placeholder="Category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              <SelectItem value="Mountain Bike">Mountain Bike</SelectItem>
+              <SelectItem value="Road Bike">Road Bike</SelectItem>
+              <SelectItem value="Hybrid Bike">Hybrid Bike</SelectItem>
+              <SelectItem value="Kids Cycle">Kids Cycle</SelectItem>
+              <SelectItem value="Accessories">Accessories</SelectItem>
+              <SelectItem value="Spare Parts">Spare Parts</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full sm:w-40 h-10 border-border">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="In Stock">In Stock</SelectItem>
+              <SelectItem value="Low Stock">Low Stock</SelectItem>
+              <SelectItem value="Out of Stock">Out of Stock</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="w-full sm:w-48 h-10 border-border">
+              <SelectValue placeholder="Sort By" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="name_asc">Name (A-Z)</SelectItem>
+              <SelectItem value="name_desc">Name (Z-A)</SelectItem>
+              <SelectItem value="stock_asc">Stock (Low-High)</SelectItem>
+              <SelectItem value="stock_desc">Stock (High-Low)</SelectItem>
+              <SelectItem value="price_asc">Price (Low-High)</SelectItem>
+              <SelectItem value="price_desc">Price (High-Low)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -496,20 +588,41 @@ export default function Inventory() {
                         {item.status}
                       </span>
                     </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(item)}>
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 text-destructive"
-                          onClick={() => handleDelete(item.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
+                     <TableCell className="text-right">
+                      {isStaff && (
+                        <div className="flex items-center justify-end gap-1">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 hover:bg-muted" 
+                            onClick={() => openEditDialog(item)}
+                            title="Edit"
+                          >
+                            <Edit className="w-4 h-4 text-slate-600" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 hover:bg-muted" 
+                            onClick={() => {
+                              setHistoryItem(item);
+                              setIsHistoryOpen(true);
+                            }}
+                            title="Stock History"
+                          >
+                            <History className="w-4 h-4 text-slate-600" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                            onClick={() => handleDelete(item.id)}
+                            title="Delete"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))
@@ -666,6 +779,12 @@ export default function Inventory() {
           </div>
         </DialogContent>
       </Dialog>
+      <StockHistoryDialog 
+        item={historyItem} 
+        open={isHistoryOpen} 
+        onOpenChange={setIsHistoryOpen} 
+      />
+
     </div>
   );
 }

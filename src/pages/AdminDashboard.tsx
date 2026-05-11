@@ -103,8 +103,8 @@ export default function AdminDashboard() {
   const loading = salesLoading || inventoryLoading || customersLoading || purchasesLoading;
 
   // Calculate stats
-  const totalSales = salesData?.reduce((sum, sale) => sum + (sale.grandTotal || 0), 0) || 0;
-  const totalInventoryValue = inventoryData?.reduce((sum, item) => sum + (item.price * item.stock), 0) || 0;
+  const totalSales = salesData?.reduce((sum, sale) => sum + (Number(sale?.grandTotal) || 0), 0) || 0;
+  const totalInventoryValue = inventoryData?.reduce((sum, item) => sum + ((Number(item?.price) || 0) * (Number(item?.stock) || 0)), 0) || 0;
   const totalCustomers = customersData?.length || 0;
   const totalItems = inventoryData?.length || 0;
 
@@ -190,14 +190,14 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-3 space-y-6">
           {/* Sales and Financial Overview */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <TrendingUp className="w-5 h-5" />
+          <div className="card-enhanced p-6">
+            <div className="flex flex-row items-center justify-between mb-6">
+              <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-primary" />
                 Sales & Financial Overview
-              </CardTitle>
+              </h2>
               <Select defaultValue="monthly">
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-[140px] h-9 text-xs">
                   <SelectValue placeholder="Time Period" />
                 </SelectTrigger>
                 <SelectContent>
@@ -207,91 +207,77 @@ export default function AdminDashboard() {
                   <SelectItem value="yearly">Yearly</SelectItem>
                 </SelectContent>
               </Select>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="lg:col-span-1">
-                  <SalesChart />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="md:col-span-2">
+                <SalesChart />
+              </div>
+              <div className="space-y-3">
+                <div className="metric-card p-4">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Total Revenue</p>
+                  <p className="text-xl font-bold text-foreground">₹{totalSales.toLocaleString()}</p>
                 </div>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center p-4 bg-muted/30 rounded-lg">
-                    <span className="text-muted-foreground">Total Revenue</span>
-                    <span className="font-semibold text-lg">₹{totalSales.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between items-center p-4 bg-muted/30 rounded-lg">
-                    <span className="text-muted-foreground">Inventory Value</span>
-                    <span className="font-semibold text-lg">₹{totalInventoryValue.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between items-center p-4 bg-muted/30 rounded-lg">
-                    <span className="text-muted-foreground">Active Customers</span>
-                    <span className="font-semibold text-lg">{totalCustomers}</span>
-                  </div>
-                  <div className="flex justify-between items-center p-4 bg-muted/30 rounded-lg">
-                    <span className="text-muted-foreground">Products</span>
-                    <span className="font-semibold text-lg">{totalItems}</span>
-                  </div>
+                <div className="metric-card p-4">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Inventory Value</p>
+                  <p className="text-xl font-bold text-foreground">₹{totalInventoryValue.toLocaleString()}</p>
+                </div>
+                <div className="metric-card p-4">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Active Customers</p>
+                  <p className="text-xl font-bold text-foreground">{totalCustomers}</p>
+                </div>
+                <div className="metric-card p-4">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Total Products</p>
+                  <p className="text-xl font-bold text-foreground">{totalItems}</p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
           {/* Recent Activity Tabs */}
           <Tabs defaultValue="sales" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="sales">Recent Sales</TabsTrigger>
-              <TabsTrigger value="customers">Recent Customers</TabsTrigger>
-              <TabsTrigger value="activity">Activity Logs</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-3 bg-muted p-1 rounded-md border border-border h-11">
+              <TabsTrigger value="sales" className="text-xs font-bold uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:shadow-sm">Recent Sales</TabsTrigger>
+              <TabsTrigger value="customers" className="text-xs font-bold uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:shadow-sm">Recent Customers</TabsTrigger>
+              <TabsTrigger value="activity" className="text-xs font-bold uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:shadow-sm">Activity Logs</TabsTrigger>
             </TabsList>
             <TabsContent value="sales">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Recent Sales</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <RecentSalesWithData sales={recentSales} loading={loading} />
-                </CardContent>
-              </Card>
+              <div className="card-enhanced p-5">
+                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4">Recent Sales</h3>
+                <RecentSalesWithData sales={recentSales} loading={loading} />
+              </div>
             </TabsContent>
             <TabsContent value="customers">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Recent Customers</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {recentCustomers.length > 0 ? (
-                      recentCustomers.map((customer) => (
-                        <div key={customer.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors">
-                          <div>
-                            <p className="font-medium">{customer.name}</p>
-                            <p className="text-sm text-muted-foreground">{customer.email}</p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded-full">
-                              {customer.type || 'Regular'}
-                            </span>
-                            <Button variant="outline" size="sm" onClick={() => navigate(`/customers/${customer.id}`)}>
-                              View
-                            </Button>
-                          </div>
+              <div className="card-enhanced p-5">
+                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4">Recent Customers</h3>
+                <div className="space-y-3">
+                  {recentCustomers.length > 0 ? (
+                    recentCustomers.map((customer) => (
+                      <div key={customer.id} className="flex items-center justify-between p-3 border border-border rounded-md hover:bg-muted/30 transition-colors">
+                        <div>
+                          <p className="font-bold text-sm">{customer.name}</p>
+                          <p className="text-xs text-muted-foreground">{customer.email}</p>
                         </div>
-                      ))
-                    ) : (
-                      <p className="text-muted-foreground text-center py-4">No recent customers</p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-primary/10 text-primary rounded border border-primary/20">
+                            {customer.type || 'Regular'}
+                          </span>
+                          <Button variant="outline" size="sm" className="h-8 text-xs font-bold uppercase tracking-wider px-3" onClick={() => navigate(`/customers/${customer.id}`)}>
+                            View
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-muted-foreground text-center py-4 text-sm">No recent customers</p>
+                  )}
+                </div>
+              </div>
             </TabsContent>
             <TabsContent value="activity">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Recent Activity</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <UserActivityLogs />
-                </CardContent>
-              </Card>
+              <div className="card-enhanced p-5">
+                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4">Recent Activity</h3>
+                <UserActivityLogs />
+              </div>
             </TabsContent>
           </Tabs>
         </div>
@@ -352,32 +338,45 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          {/* Inventory Overview */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Package className="w-5 h-5" />
-                Inventory Status
+          {/* Low Stock Intelligence Widget */}
+          <Card className="border-rose-200 bg-rose-50/30">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-rose-700 text-sm font-bold uppercase tracking-tight">
+                <AlertTriangle className="w-4 h-4" />
+                Low Stock Critical
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Low Stock Items</span>
-                  <Badge variant="destructive" className="text-xs">12</Badge>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Out of Stock</span>
-                  <Badge variant="destructive" className="text-xs">3</Badge>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">New Arrivals</span>
-                  <Badge variant="default" className="text-xs">8</Badge>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Total Categories</span>
-                  <span className="font-medium">12</span>
-                </div>
+              <div className="space-y-4">
+                {inventoryData?.filter(i => i.stock < (i.reorderLevel || 5)).length === 0 ? (
+                  <div className="text-center py-4">
+                    <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-2" />
+                    <p className="text-xs font-bold text-green-700 uppercase">Stock Healthy</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      {inventoryData
+                        ?.filter(i => i.stock < (i.reorderLevel || 5))
+                        .slice(0, 3)
+                        .map(item => (
+                          <div key={item.id} className="flex justify-between items-center bg-white p-2 rounded border border-rose-100">
+                            <div>
+                              <p className="text-[10px] font-bold text-slate-900 truncate max-w-[120px]">{item.name}</p>
+                              <p className="text-[9px] text-slate-500">Current: {item.stock} / Min: {item.reorderLevel || 5}</p>
+                            </div>
+                            <Badge variant="destructive" className="h-5 text-[9px] px-1.5 font-black uppercase">Low</Badge>
+                          </div>
+                        ))}
+                    </div>
+                    <Button 
+                      className="w-full bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-bold uppercase tracking-widest h-9"
+                      onClick={() => navigate('/purchases')}
+                    >
+                      Manage Procurement
+                    </Button>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>

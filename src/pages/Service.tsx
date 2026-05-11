@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useLocation } from "react-router-dom";
-import { Search, Plus, Wrench, Clock, CheckCircle2, AlertCircle, Loader2, BarChart3, TrendingUp, Users, DollarSign, User, Calendar, Settings, CheckCircle2 as CheckCircle2Icon, XCircle } from "lucide-react";
+import { Search, Plus, Wrench, Clock, CheckCircle2, AlertCircle, Loader2, BarChart3, TrendingUp, Users, DollarSign, User, Calendar, Settings, CheckCircle2 as CheckCircle2Icon, XCircle, Printer, Bike, Phone, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -21,8 +21,12 @@ import {
 } from "@/components/ui/select";
 import { useFirestoreCollection } from "@/hooks/useFirestore";
 import { COLLECTIONS } from "@/lib/firebaseCollections";
-import { ServiceJob } from "@/types/firebase";
+import { ServiceJob, SaleOrder } from "@/types/firebase";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { getNextNumber } from "@/lib/autoInvoiceNumber";
+import { ServiceReceipt } from "@/components/service/ServiceReceipt";
+import { JobCardPrint } from "@/components/service/JobCardPrint";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   BarChart,
@@ -61,25 +65,56 @@ const priorityClasses = {
 };
 
 export default function Service() {
+  const { user, isStaff } = useAuth();
   const location = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("jobs"); // jobs, analytics
-  
+  const [isGeneratingNumber, setIsGeneratingNumber] = useState(false);
+
   // Status update state
   const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
   const [newStatus, setNewStatus] = useState<"Pending" | "In Progress" | "Completed" | "Awaiting Parts">();
   
   // Payment update state
+  // Payment update state
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
   const [newPaymentStatus, setNewPaymentStatus] = useState<"Paid" | "Unpaid" | "Partial">();
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
-  
+
+  // Completion Workflow State
+  const [completingJob, setCompletingJob] = useState<ServiceJob | null>(null);
+  const [completionData, setCompletionData] = useState({
+    actualCost: 0,
+    partsUsed: "",
+    completionNotes: "",
+    paymentCollected: 0,
+  });
+
+  // Printing State
+  const [printingJob, setPrintingJob] = useState<ServiceJob | null>(null);
+  const [printingJobCard, setPrintingJobCard] = useState<ServiceJob | null>(null);
+
   useEffect(() => {
     if (location.pathname === "/service/new") {
       setIsAddOpen(true);
     }
   }, [location.pathname]);
+
+  // Auto-generate Service Job ID each time the dialog opens
+  useEffect(() => {
+    if (isAddOpen) {
+      setIsGeneratingNumber(true);
+      getNextNumber("service")
+        .then((num) => {
+          setNewJob((prev) => ({ ...prev, jobId: num }));
+        })
+        .catch((err) => {
+          console.error("Failed to generate service job ID:", err);
+        })
+        .finally(() => setIsGeneratingNumber(false));
+    }
+  }, [isAddOpen]);
   const [newJob, setNewJob] = useState<Omit<ServiceJob, "id">>({
     jobId: "",
     customer: "",
@@ -94,7 +129,8 @@ export default function Service() {
     technician: "",
   });
 
-  const { data: serviceJobs, loading, add, update } = useFirestoreCollection<ServiceJob>(COLLECTIONS.SERVICES);
+  const { data: serviceJobs = [], loading, add, update } = useFirestoreCollection<ServiceJob>(COLLECTIONS.SERVICES);
+  const { data: salesData = [] } = useFirestoreCollection<SaleOrder>(COLLECTIONS.SALES);
   const { toast } = useToast();
 
   // Define types for service analytics
@@ -171,7 +207,6 @@ export default function Service() {
     try {
       await add({
         ...newJob,
-        jobId: `SRV-${Date.now().toString().slice(-6)}`,
       });
       setIsAddOpen(false);
       setNewJob({ jobId: "", customer: "", phone: "", cycle: "", issue: "", receivedDate: new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }), expectedDate: "", status: "Pending", priority: "Medium", estimatedCost: 0, technician: "" });
@@ -183,15 +218,71 @@ export default function Service() {
 
   const filteredJobs = serviceJobs.filter(
     (job) =>
-      job.customer?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      job.jobId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      job.cycle?.toLowerCase().includes(searchQuery.toLowerCase())
+      (job.customer?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
+      (job.jobId?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
+      (job.cycle?.toLowerCase() || "").includes(searchQuery.toLowerCase())
   );
+
+  const handleCompleteJob = async () => {
+    if (!completingJob) return;
+    try {
+      await update(completingJob.id, {
+        status: "Completed",
+        actualCost: completionData.actualCost,
+        partsUsed: completionData.partsUsed,
+        completionNotes: completionData.completionNotes,
+        amountPaid: completionData.paymentCollected > 0 ? completionData.paymentCollected : completingJob.amountPaid,
+        payment: completionData.paymentCollected > 0 ? (completionData.paymentCollected >= completionData.actualCost ? "Paid" : "Partial") : completingJob.payment,
+        deliveredDate: new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
+      });
+      toast({ title: "Job marked as completed successfully!" });
+      setCompletingJob(null);
+      setCompletionData({ actualCost: 0, partsUsed: "", completionNotes: "", paymentCollected: 0 });
+    } catch (error) {
+      toast({ title: "Error completing job", variant: "destructive" });
+    }
+  };
 
   const pending = serviceJobs.filter(j => j.status === "Pending").length;
   const inProgress = serviceJobs.filter(j => j.status === "In Progress").length;
   const completed = serviceJobs.filter(j => j.status === "Completed").length;
   const awaitingParts = serviceJobs.filter(j => j.status === "Awaiting Parts").length;
+
+  // Logic for Service Reminders (Cycle sold 3-4 months ago)
+  const serviceReminders = useMemo(() => {
+    const today = new Date();
+    const threeMonthsAgo = new Date(today);
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+    const fourMonthsAgo = new Date(today);
+    fourMonthsAgo.setMonth(fourMonthsAgo.getMonth() - 4);
+
+    return salesData.filter(sale => {
+      if (!sale.date) return false;
+      const saleDate = new Date(sale.date);
+      const isCorrectTimeWindow = saleDate <= threeMonthsAgo && saleDate >= fourMonthsAgo;
+      
+      // Check if they've already had a service
+      const hasHadService = serviceJobs.some(job => 
+        job.phone === sale.customerPhone || job.customer === sale.customerName
+      );
+
+      return isCorrectTimeWindow && !hasHadService;
+    });
+  }, [salesData, serviceJobs]);
+
+  const handlePrint = (job: ServiceJob) => {
+    setPrintingJob(job);
+    setTimeout(() => {
+      window.print();
+    }, 500);
+  };
+
+  const handlePrintJobCard = (job: ServiceJob) => {
+    setPrintingJobCard(job);
+    setTimeout(() => {
+      window.print();
+    }, 500);
+  };
 
   if (loading) {
     return (
@@ -212,81 +303,139 @@ export default function Service() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <div className="flex gap-1 bg-secondary rounded-lg p-1">
+          <div className="flex gap-0.5 bg-muted rounded-md p-0.5 border border-border">
             <button 
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab === "jobs" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              className={`px-4 py-2 rounded-[0.35rem] text-xs font-bold uppercase tracking-wider transition-all ${activeTab === "jobs" ? "bg-white text-primary shadow-sm border border-border" : "text-muted-foreground hover:text-foreground"}`}
               onClick={() => setActiveTab("jobs")}
             >
-              Service Jobs
+              Live Jobs
             </button>
             <button 
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${activeTab === "analytics" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              className={`px-4 py-2 rounded-[0.35rem] text-xs font-bold uppercase tracking-wider transition-all relative ${activeTab === "reminders" ? "bg-white text-primary shadow-sm border border-border" : "text-muted-foreground hover:text-foreground"}`}
+              onClick={() => setActiveTab("reminders")}
+            >
+              Reminders
+              {serviceReminders.length > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white text-[8px] flex items-center justify-center rounded-full border border-white shadow-sm">
+                  {serviceReminders.length}
+                </span>
+              )}
+            </button>
+            <button 
+              className={`px-4 py-2 rounded-[0.35rem] text-xs font-bold uppercase tracking-wider transition-all ${activeTab === "analytics" ? "bg-white text-primary shadow-sm border border-border" : "text-muted-foreground hover:text-foreground"}`}
               onClick={() => setActiveTab("analytics")}
             >
               Analytics
             </button>
           </div>
-          <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                New Service Job
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg">
-              <DialogHeader>
-                <DialogTitle>New Service Job</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Customer Name</Label>
-                    <Input value={newJob.customer} onChange={(e) => setNewJob({ ...newJob, customer: e.target.value })} />
+          {isStaff && (
+            <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+              <DialogTrigger asChild>
+                <Button className="btn-primary">
+                  <Plus className="w-4 h-4 mr-2" />
+                  New Service Job
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="text-2xl font-bold">New Service Job</DialogTitle>
+                </DialogHeader>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-4">
+                  {/* Left Column: Customer & Job Info */}
+                  <div className="space-y-6">
+                    <div className="bg-secondary/30 p-4 rounded-xl border border-border/50 space-y-4">
+                      <h3 className="font-semibold text-primary flex items-center gap-2">
+                        <User className="w-4 h-4" /> Customer Details
+                      </h3>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Job ID</Label>
+                        <div className="relative mt-1">
+                          <Input
+                            value={newJob.jobId}
+                            readOnly
+                            className="bg-secondary/50 font-mono font-semibold text-primary cursor-default border-dashed"
+                            placeholder={isGeneratingNumber ? "Generating..." : "SRV-XXXX"}
+                          />
+                          {isGeneratingNumber && (
+                            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
+                          )}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Customer Name *</Label>
+                          <Input className="mt-1" value={newJob.customer} onChange={(e) => setNewJob({ ...newJob, customer: e.target.value })} placeholder="John Doe" />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Phone *</Label>
+                          <Input className="mt-1" value={newJob.phone} onChange={(e) => setNewJob({ ...newJob, phone: e.target.value })} placeholder="9876543210" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-secondary/30 p-4 rounded-xl border border-border/50 space-y-4">
+                      <h3 className="font-semibold text-primary flex items-center gap-2">
+                        <Clock className="w-4 h-4" /> Schedule & Assignment
+                      </h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Expected Completion</Label>
+                          <Input className="mt-1" type="date" value={newJob.expectedDate} onChange={(e) => setNewJob({ ...newJob, expectedDate: e.target.value })} />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Technician</Label>
+                          <Input className="mt-1" value={newJob.technician} onChange={(e) => setNewJob({ ...newJob, technician: e.target.value })} placeholder="Assign to..." />
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Priority Level</Label>
+                        <Select value={newJob.priority} onValueChange={(v: "High" | "Medium" | "Low") => setNewJob({ ...newJob, priority: v })}>
+                          <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Low">Low</SelectItem>
+                            <SelectItem value="Medium">Medium</SelectItem>
+                            <SelectItem value="High">High</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <Label>Phone</Label>
-                    <Input value={newJob.phone} onChange={(e) => setNewJob({ ...newJob, phone: e.target.value })} />
+
+                  {/* Right Column: Cycle & Issue Details */}
+                  <div className="space-y-6">
+                    <div className="bg-secondary/30 p-4 rounded-xl border border-border/50 space-y-4 h-full">
+                      <h3 className="font-semibold text-primary flex items-center gap-2">
+                        <Wrench className="w-4 h-4" /> Technical Details
+                      </h3>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Cycle Model *</Label>
+                        <Input className="mt-1" value={newJob.cycle} onChange={(e) => setNewJob({ ...newJob, cycle: e.target.value })} placeholder="e.g. Hero Sprint Pro 26T" />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Issue Description *</Label>
+                        <textarea 
+                          className="w-full mt-1 min-h-[120px] rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                          value={newJob.issue} 
+                          onChange={(e) => setNewJob({ ...newJob, issue: e.target.value })} 
+                          placeholder="Detailed description of the problems..."
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Estimated Cost (₹)</Label>
+                        <Input className="mt-1 font-semibold text-lg" type="number" value={newJob.estimatedCost} onChange={(e) => setNewJob({ ...newJob, estimatedCost: parseInt(e.target.value) || 0 })} />
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div>
-                  <Label>Cycle Model</Label>
-                  <Input value={newJob.cycle} onChange={(e) => setNewJob({ ...newJob, cycle: e.target.value })} placeholder="e.g. Hero Sprint Pro 26T" />
+                <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-border">
+                  <Button variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
+                  <Button onClick={handleAddJob} disabled={!newJob.customer || !newJob.cycle || !newJob.issue}>
+                    Create Service Job
+                  </Button>
                 </div>
-                <div>
-                  <Label>Issue Description</Label>
-                  <Input value={newJob.issue} onChange={(e) => setNewJob({ ...newJob, issue: e.target.value })} placeholder="e.g. Brake adjustment + Chain replacement" />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Expected Completion</Label>
-                    <Input value={newJob.expectedDate} onChange={(e) => setNewJob({ ...newJob, expectedDate: e.target.value })} placeholder="e.g. Dec 28, 2024" />
-                  </div>
-                  <div>
-                    <Label>Estimated Cost (₹)</Label>
-                    <Input type="number" value={newJob.estimatedCost} onChange={(e) => setNewJob({ ...newJob, estimatedCost: parseInt(e.target.value) || 0 })} />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Priority</Label>
-                    <Select value={newJob.priority} onValueChange={(v: "High" | "Medium" | "Low") => setNewJob({ ...newJob, priority: v })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Low">Low</SelectItem>
-                        <SelectItem value="Medium">Medium</SelectItem>
-                        <SelectItem value="High">High</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Technician</Label>
-                    <Input value={newJob.technician} onChange={(e) => setNewJob({ ...newJob, technician: e.target.value })} />
-                  </div>
-                </div>
-                <Button onClick={handleAddJob} className="w-full">Create Service Job</Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
       </div>
 
@@ -294,61 +443,45 @@ export default function Service() {
         <div className="space-y-6">
           {/* Service Analytics Overview */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+            <div className="metric-card">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Total Revenue</p>
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  ₹{serviceAnalytics.monthlyRevenue ? Object.values(serviceAnalytics.monthlyRevenue).reduce((sum, val) => sum + val, 0).toLocaleString() : 0}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  from completed service jobs
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Jobs</CardTitle>
+              </div>
+              <div className="text-2xl font-bold">
+                ₹{(serviceAnalytics.monthlyRevenue ? Object.values(serviceAnalytics.monthlyRevenue).reduce((sum, val) => sum + (Number(val) || 0), 0) : 0).toLocaleString()}
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1">from completed jobs</p>
+            </div>
+            <div className="metric-card">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Total Jobs</p>
                 <Wrench className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{serviceJobs.length}</div>
-                <p className="text-xs text-muted-foreground">
-                  service jobs processed
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Active Jobs</CardTitle>
+              </div>
+              <div className="text-2xl font-bold">{serviceJobs.length}</div>
+              <p className="text-[10px] text-muted-foreground mt-1">jobs processed</p>
+            </div>
+            <div className="metric-card">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Active Jobs</p>
                 <Clock className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{serviceJobs.filter(j => j.status !== "Completed").length}</div>
-                <p className="text-xs text-muted-foreground">
-                  in progress or pending
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Top Technician</CardTitle>
+              </div>
+              <div className="text-2xl font-bold">{serviceJobs.filter(j => j.status !== "Completed").length}</div>
+              <p className="text-[10px] text-muted-foreground mt-1">in progress/pending</p>
+            </div>
+            <div className="metric-card">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Top Technician</p>
                 <User className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {Object.entries(serviceAnalytics.technicianPerformance).length > 0
-                    ? Object.entries(serviceAnalytics.technicianPerformance)
-                        .sort((a, b) => b[1].completed - a[1].completed)[0][0]
-                    : "-"}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  most completed jobs
-                </p>
-              </CardContent>
-            </Card>
+              </div>
+              <div className="text-2xl font-bold">
+                {Object.entries(serviceAnalytics.technicianPerformance).length > 0
+                  ? Object.entries(serviceAnalytics.technicianPerformance)
+                      .sort((a, b) => b[1].completed - a[1].completed)[0][0]
+                  : "-"}
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1">most completed jobs</p>
+            </div>
           </div>
 
           {/* Charts */}
@@ -450,33 +583,33 @@ export default function Service() {
         <div className="space-y-6">
           {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-card p-4 rounded-xl border border-border/50">
+            <div className="metric-card">
               <div className="flex items-center gap-2 mb-2">
                 <Clock className="w-5 h-5 text-warning" />
-                <span className="text-sm text-muted-foreground">Pending</span>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Pending</p>
               </div>
-              <p className="text-2xl font-bold font-heading text-foreground">{pending}</p>
+              <p className="text-2xl font-bold text-foreground">{pending}</p>
             </div>
-            <div className="bg-card p-4 rounded-xl border border-border/50">
+            <div className="metric-card">
               <div className="flex items-center gap-2 mb-2">
                 <Wrench className="w-5 h-5 text-primary" />
-                <span className="text-sm text-muted-foreground">In Progress</span>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">In Progress</p>
               </div>
-              <p className="text-2xl font-bold font-heading text-foreground">{inProgress}</p>
+              <p className="text-2xl font-bold text-foreground">{inProgress}</p>
             </div>
-            <div className="bg-card p-4 rounded-xl border border-border/50">
+            <div className="metric-card">
               <div className="flex items-center gap-2 mb-2">
                 <CheckCircle2 className="w-5 h-5 text-success" />
-                <span className="text-sm text-muted-foreground">Completed</span>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Completed</p>
               </div>
-              <p className="text-2xl font-bold font-heading text-foreground">{completed}</p>
+              <p className="text-2xl font-bold text-foreground">{completed}</p>
             </div>
-            <div className="bg-card p-4 rounded-xl border border-border/50">
+            <div className="metric-card">
               <div className="flex items-center gap-2 mb-2">
-                <AlertCircle className="w-5 h-5 text-accent" />
-                <span className="text-sm text-muted-foreground">Awaiting Parts</span>
+                <AlertCircle className="w-5 h-5 text-destructive" />
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Awaiting Parts</p>
               </div>
-              <p className="text-2xl font-bold font-heading text-foreground">{awaitingParts}</p>
+              <p className="text-2xl font-bold text-foreground">{awaitingParts}</p>
             </div>
           </div>
 
@@ -487,7 +620,7 @@ export default function Service() {
               placeholder="Search service jobs..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
+              className="pl-10 input-enhanced"
             />
           </div>
 
@@ -503,7 +636,7 @@ export default function Service() {
                 return (
                   <div
                     key={job.id}
-                    className="bg-card rounded-xl border border-border/50 shadow-sm p-5 hover:shadow-md transition-shadow"
+                    className="card-enhanced p-5 hover:bg-slate-50/50 transition-colors"
                   >
                     <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                       <div className="flex-1">
@@ -559,13 +692,20 @@ export default function Service() {
                                 </Select>
                                 <Button size="sm" onClick={async () => {
                                   if (newStatus) {
-                                    try {
-                                      await update(job.id, { status: newStatus });
-                                      toast({ title: "Status updated successfully" });
+                                    if (newStatus === "Completed") {
                                       setEditingStatusId(null);
                                       setNewStatus(undefined);
-                                    } catch (error) {
-                                      toast({ title: "Error updating status", variant: "destructive" });
+                                      setCompletingJob(job);
+                                      setCompletionData({ ...completionData, actualCost: job.estimatedCost || 0 });
+                                    } else {
+                                      try {
+                                        await update(job.id, { status: newStatus });
+                                        toast({ title: "Status updated successfully" });
+                                        setEditingStatusId(null);
+                                        setNewStatus(undefined);
+                                      } catch (error) {
+                                        toast({ title: "Error updating status", variant: "destructive" });
+                                      }
                                     }
                                   }
                                 }}>
@@ -647,6 +787,28 @@ export default function Service() {
                               </Button>
                             )}
                           </div>
+
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              onClick={() => handlePrintJobCard(job)}
+                              className="text-[10px] font-bold uppercase tracking-widest px-3 h-8"
+                            >
+                              <Printer className="w-3 h-3 mr-1.5 text-slate-500" />
+                              Job Card
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="secondary" 
+                              onClick={() => setPrintingJob(job)}
+                              disabled={job.status !== "Completed"}
+                              className="text-[10px] font-bold uppercase tracking-widest px-3 h-8"
+                            >
+                              <Printer className="w-3 h-3 mr-1.5" />
+                              Receipt
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -658,7 +820,155 @@ export default function Service() {
         </div>
       )}
 
+      {activeTab === "reminders" && (
+        <div className="space-y-6">
+           <div className="bg-amber-50 border border-amber-200 p-6 rounded-xl flex items-start gap-4">
+              <div className="bg-amber-500 p-2 rounded-lg text-white">
+                 <Bell className="w-5 h-5" />
+              </div>
+              <div>
+                 <h3 className="text-sm font-black text-amber-900 uppercase tracking-tight">Predictive Service Reminders</h3>
+                 <p className="text-xs text-amber-700 mt-1 leading-relaxed">
+                   These customers purchased a bicycle 3-4 months ago and haven't returned for their first service. 
+                   Proactive outreach can increase customer lifetime value by 35%.
+                 </p>
+              </div>
+           </div>
 
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {serviceReminders.length === 0 ? (
+                <div className="col-span-full py-20 text-center card-enhanced bg-slate-50/50">
+                   <CheckCircle2Icon className="w-12 h-12 text-green-200 mx-auto mb-4" />
+                   <p className="text-slate-500 font-bold uppercase tracking-widest">No pending reminders</p>
+                </div>
+              ) : (
+                serviceReminders.map(sale => (
+                  <div key={sale.id} className="card-enhanced p-5 border-l-4 border-l-amber-400">
+                     <div className="flex justify-between items-start mb-4">
+                        <div className="bg-slate-100 p-2 rounded">
+                           <Bike className="w-4 h-4 text-slate-500" />
+                        </div>
+                        <Badge variant="outline" className="text-[10px] font-black uppercase tracking-widest text-amber-700 bg-amber-50 border-amber-200">
+                           First Service Due
+                        </Badge>
+                     </div>
+                     <h4 className="text-sm font-black text-slate-900">{sale.customerName}</h4>
+                     <p className="text-[10px] text-slate-500 font-bold uppercase mt-1 tracking-tighter">Purchased: {sale.date}</p>
+                     
+                     <div className="mt-6 flex items-center justify-between pt-4 border-t border-slate-100">
+                        <div className="flex items-center gap-2">
+                           <Phone className="w-3.5 h-3.5 text-slate-400" />
+                           <span className="text-xs font-bold text-slate-600">{sale.customerPhone}</span>
+                        </div>
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="h-8 text-[10px] font-black uppercase text-primary hover:bg-primary/5"
+                          onClick={() => {
+                            setNewJob({ ...newJob, customer: sale.customerName || "", phone: sale.customerPhone || "", cycle: `${sale.brand || ''} ${sale.model || ''}`.trim(), issue: "First Free Service" });
+                            setIsAddOpen(true);
+                          }}
+                        >
+                          Book Now
+                        </Button>
+                     </div>
+                  </div>
+                ))
+              )}
+           </div>
+        </div>
+      )}
+
+      {/* Complete Job Dialog */}
+      <Dialog open={!!completingJob} onOpenChange={(open) => !open && setCompletingJob(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Complete Service Job</DialogTitle>
+          </DialogHeader>
+          {completingJob && (
+            <div className="space-y-4 mt-2">
+              <div className="bg-secondary/30 p-3 rounded-lg border border-border/50 text-sm">
+                <span className="font-semibold">{completingJob.customer}</span>'s {completingJob.cycle}
+              </div>
+              <div>
+                <Label>Actual Cost (₹)</Label>
+                <Input 
+                  type="number" 
+                  value={completionData.actualCost} 
+                  onChange={(e) => setCompletionData({ ...completionData, actualCost: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+              <div>
+                <Label>Payment Collected Now (₹)</Label>
+                <Input 
+                  type="number" 
+                  value={completionData.paymentCollected} 
+                  onChange={(e) => setCompletionData({ ...completionData, paymentCollected: parseInt(e.target.value) || 0 })}
+                  placeholder="Leave 0 if unpaid"
+                />
+              </div>
+              <div>
+                <Label>Parts Replaced / Used</Label>
+                <Input 
+                  value={completionData.partsUsed} 
+                  onChange={(e) => setCompletionData({ ...completionData, partsUsed: e.target.value })}
+                  placeholder="e.g. Brake pads, Inner tube"
+                />
+              </div>
+              <div>
+                <Label>Completion Notes</Label>
+                <textarea 
+                  className="w-full mt-1 min-h-[80px] rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={completionData.completionNotes} 
+                  onChange={(e) => setCompletionData({ ...completionData, completionNotes: e.target.value })}
+                  placeholder="Any notes for the customer..."
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-4 border-t border-border">
+                <Button variant="outline" onClick={() => setCompletingJob(null)}>Cancel</Button>
+                <Button onClick={handleCompleteJob} className="bg-success hover:bg-success/90 text-white">
+                  <CheckCircle2Icon className="w-4 h-4 mr-2" />
+                  Mark as Completed
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Printing Modal for Service Receipt */}
+      <Dialog open={!!printingJob} onOpenChange={(open) => !open && setPrintingJob(null)}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex justify-between items-center">
+              <span>Service Receipt</span>
+              <Button onClick={() => window.print()} className="mr-6">
+                <Printer className="w-4 h-4 mr-2" /> Print Receipt
+              </Button>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="print-section bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <ServiceReceipt job={printingJob!} />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Printing Modal for Job Card */}
+      <Dialog open={!!printingJobCard} onOpenChange={(open) => !open && setPrintingJobCard(null)}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex justify-between items-center">
+              <span>Intake Job Card</span>
+              <Button onClick={() => window.print()} className="mr-6">
+                <Printer className="w-4 h-4 mr-2" /> Print Job Card
+              </Button>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="print-section bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <JobCardPrint job={printingJobCard!} />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

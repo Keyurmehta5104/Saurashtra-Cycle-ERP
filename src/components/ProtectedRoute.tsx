@@ -42,21 +42,20 @@ export function ProtectedRoute({ children, requireAdmin = false, allowedRoles }:
     );
   }
 
-  // Allow all authenticated users to access routes - remove admin requirement
-  /*
   if (requireAdmin && !isAdmin) {
-    // Redirect to dashboard if user is not admin but admin access is required
+    // Redirect to appropriate dashboard if user is not admin
+    if (user.role === 'employee') return <Navigate to="/employee-dashboard" replace />;
+    if (user.role === 'customer') return <Navigate to="/customer-dashboard" replace />;
     return <Navigate to="/dashboard" replace />;
   }
-  */
 
-  // Allow all authenticated users to access routes - remove role-based restrictions
-  /*
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
-    // Redirect to dashboard if user role is not in allowed roles
+    // Redirect to appropriate dashboard if user role is not in allowed roles
+    if (user.role === 'admin') return <Navigate to="/admin" replace />;
+    if (user.role === 'employee') return <Navigate to="/employee-dashboard" replace />;
+    if (user.role === 'customer') return <Navigate to="/customer-dashboard" replace />;
     return <Navigate to="/dashboard" replace />;
   }
-  */
 
   return <>{children}</>;
 }

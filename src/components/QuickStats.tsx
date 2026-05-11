@@ -13,9 +13,9 @@ interface QuickStatsProps {
 }
 
 export default function QuickStats({ isAdmin = false }: QuickStatsProps) {
-  const { data: inventoryData } = useFirestoreCollection<InventoryItem>(COLLECTIONS.INVENTORY);
-  const { data: salesData } = useFirestoreCollection<SaleOrder>(COLLECTIONS.SALES);
-  const { data: customersData } = useFirestoreCollection<Customer>(COLLECTIONS.CUSTOMERS);
+  const { data: inventoryData, loading: inventoryLoading } = useFirestoreCollection<InventoryItem>(COLLECTIONS.INVENTORY);
+  const { data: salesData, loading: salesLoading } = useFirestoreCollection<SaleOrder>(COLLECTIONS.SALES);
+  const { data: customersData, loading: customersLoading } = useFirestoreCollection<Customer>(COLLECTIONS.CUSTOMERS);
   const { user } = useAuth();
 
   const [stats, setStats] = useState({
@@ -30,27 +30,29 @@ export default function QuickStats({ isAdmin = false }: QuickStatsProps) {
   });
 
   useEffect(() => {
-    // Calculate stats from the data
-    const totalProducts = inventoryData.length;
-    const totalSales = salesData.length;
-    const totalRevenue = salesData.reduce((sum, sale) => sum + sale.grandTotal, 0);
-    const lowStockItems = inventoryData.filter(item => {
-      const reorderLevel = item.reorderLevel || 10;
-      return item.stock < reorderLevel && item.stock > 0;
+    // Calculate stats from the data with defensive checks
+    const totalProducts = inventoryData?.length || 0;
+    const totalSales = salesData?.length || 0;
+    const totalRevenue = salesData?.reduce((sum, sale) => sum + (Number(sale?.grandTotal) || 0), 0) || 0;
+    const lowStockItems = (inventoryData || []).filter(item => {
+      const reorderLevel = Number(item?.reorderLevel) || 10;
+      const currentStock = Number(item?.stock) || 0;
+      return currentStock < reorderLevel && currentStock > 0;
     }).length;
-    const outOfStockItems = inventoryData.filter(item => item.stock === 0).length;
-    const totalCustomers = customersData.length;
+    const outOfStockItems = (inventoryData || []).filter(item => (Number(item?.stock) || 0) === 0).length;
+    const totalCustomers = customersData?.length || 0;
     
     // Calculate today's sales
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const todaySales = salesData.filter(sale => {
+    const todaySales = (salesData || []).filter(sale => {
+      if (!sale?.date) return false;
       const saleDate = new Date(sale.date);
       return saleDate.toDateString() === today.toDateString();
-    }).reduce((sum, sale) => sum + sale.grandTotal, 0);
+    }).reduce((sum, sale) => sum + (Number(sale?.grandTotal) || 0), 0) || 0;
     
     // Calculate pending orders
-    const pendingOrders = salesData.filter(sale => sale.status === 'Processing').length;
+    const pendingOrders = (salesData || []).filter(sale => sale?.status === 'Processing').length;
 
     setStats({
       totalProducts,
@@ -112,6 +114,25 @@ export default function QuickStats({ isAdmin = false }: QuickStatsProps) {
       change: "Requires attention"
     }
   ];
+
+  if (inventoryLoading || salesLoading || customersLoading) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {[1, 2, 3, 4].map((i) => (
+          <Card key={i} className="animate-pulse">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div className="h-4 w-24 bg-slate-100 rounded"></div>
+              <div className="h-8 w-8 bg-slate-100 rounded-full"></div>
+            </CardHeader>
+            <CardContent>
+              <div className="h-8 w-16 bg-slate-100 rounded mb-2"></div>
+              <div className="h-3 w-32 bg-slate-100 rounded"></div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
