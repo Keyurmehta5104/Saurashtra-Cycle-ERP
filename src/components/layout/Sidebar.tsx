@@ -183,7 +183,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
 
           {/* Navigation */}
           <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-8 scrollbar-hide">
-            {((): { group: string, items: any[] }[] => {
+            {(() => {
               if (isAdmin) return adminNavigation;
               if (user?.role === 'employee') return employeeNavigation;
               // Default to customer navigation for all other roles (Member, Auditor, etc.)

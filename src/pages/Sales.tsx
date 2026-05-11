@@ -180,7 +180,6 @@ export default function Sales() {
   const { data: salesData, loading: salesLoading, update } = useFirestoreCollection<SaleOrder>(COLLECTIONS.SALES);
   const { data: inventoryData, loading: inventoryLoading } = useFirestoreCollection<InventoryItem>(COLLECTIONS.INVENTORY);
   const { toast } = useToast();
-  const { user } = useAuth();
 
   const loading = salesLoading || inventoryLoading;
 

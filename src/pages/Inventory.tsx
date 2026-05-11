@@ -86,7 +86,6 @@ export default function Inventory() {
 
   const { data: inventoryData, loading, add, remove, update } = useFirestoreCollection<InventoryItem>(COLLECTIONS.INVENTORY);
   const { toast } = useToast();
-  const { user } = useAuth();
 
   const getStatus = (stock: number, reorderLevel?: number): "In Stock" | "Low Stock" | "Out of Stock" => {
     if (stock === 0) return "Out of Stock";
